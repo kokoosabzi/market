@@ -18,6 +18,9 @@
         <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span> نمای کلی</button>
         <button class="nav-item" data-page="products"><span class="nav-icon">▦</span> کالاها</button>
         <button class="nav-item" data-page="categories"><span class="nav-icon">▤</span> دسته‌بندی‌ها</button>
+        <button class="nav-item" data-page="purchase"><span class="nav-icon">↙</span> خریدها</button>
+        <button class="nav-item" data-page="sale"><span class="nav-icon">↗</span> فروش‌ها</button>
+        <button class="nav-item" data-page="inventory"><span class="nav-icon">▥</span> موجودی</button>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span> تنظیمات</button>
       </nav>
       <div class="sidebar-bottom"><span class="status-dot"></span><div><strong>حالت آفلاین</strong><small>اطلاعات روی همین دستگاه</small></div></div>
@@ -48,6 +51,19 @@
         <form id="category-form" class="inline-form"><label>نام دسته‌بندی<input id="category-name" maxlength="80" required placeholder="مثلاً مواد غذایی"></label><button class="primary-button" type="submit">ثبت دسته‌بندی</button></form>
         <div id="categories-list" class="category-list"></div>
       </section>
+      <section id="purchase-page" class="page" hidden>
+        <div class="section-heading"><div><h2>اسناد خرید</h2><p>ثبت پیش‌نویس یا نهایی‌سازی خرید و ورود موجودی</p></div><button class="primary-button" data-new-document="purchase">＋ خرید جدید</button></div>
+        <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>فروشنده (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="purchase-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+      </section>
+      <section id="sale-page" class="page" hidden>
+        <div class="section-heading"><div><h2>اسناد فروش</h2><p>ثبت فروش، کاهش موجودی و نگهداری snapshot بهای تمام‌شده</p></div><button class="primary-button" data-new-document="sale">＋ فروش جدید</button></div>
+        <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>خریدار (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="sale-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+      </section>
+      <section id="inventory-page" class="page" hidden>
+        <div class="section-heading"><div><h2>وضعیت موجودی</h2><p>موجودی از گردش اسناد نهایی‌شده محاسبه می‌شود؛ مقدار منفی مجاز است و باید بررسی شود.</p></div><button class="secondary-button" id="refresh-inventory">به‌روزرسانی</button></div>
+        <div class="table-wrap"><table><thead><tr><th>کد</th><th>نام کالا</th><th>واحد</th><th>موجودی</th><th>آخرین قیمت خرید</th><th>ارزش‌گذاری جاری</th></tr></thead><tbody id="inventory-table"><tr><td colspan="6" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+        <p class="table-footnote">ارزش‌گذاری بر پایهٔ آخرین قیمت خرید معتبر است؛ بهای تمام‌شدهٔ اسناد فروش قطعی بازنویسی نمی‌شود.</p>
+      </section>
       <section id="settings-page" class="page" hidden>
         <div class="section-heading"><div><h2>تنظیمات نمایش</h2><p>ظاهر برنامه را مطابق سلیقهٔ خود تنظیم کنید</p></div></div>
         <div class="settings-card"><div><strong>پوستهٔ برنامه</strong><p>می‌توانید از حالت روشن، تیره یا تنظیم خودکار سیستم استفاده کنید.</p></div><div class="segmented-control" role="group" aria-label="پوسته"><button data-theme-choice="light" type="button">روشن</button><button data-theme-choice="dark" type="button">تیره</button><button data-theme-choice="system" type="button">خودکار</button></div></div>
@@ -73,6 +89,22 @@
       </div>
       <p class="form-error" id="product-form-error" role="alert" hidden></p>
       <div class="modal-actions"><button type="button" class="secondary-button" id="cancel-product">انصراف</button><button type="submit" class="primary-button" id="save-product">ذخیرهٔ کالا</button></div>
+    </form>
+  </dialog>
+  <dialog id="document-dialog" class="modal document-modal">
+    <form id="document-form" class="modal-form">
+      <div class="modal-heading"><div><span class="eyebrow">سند فروشگاهی</span><h2 id="document-dialog-title">سند جدید</h2></div><button id="close-document-dialog" class="icon-button" type="button" aria-label="بستن">×</button></div>
+      <input id="document-id" type="hidden"><input id="document-type" type="hidden">
+      <div class="form-grid">
+        <label>تاریخ سند <span class="required">*</span><input id="document-date" type="date" required><small id="jalali-date-preview">نمایش شمسی پس از انتخاب تاریخ</small></label>
+        <label>نام طرف معامله (اختیاری)<input id="document-party" maxlength="160" placeholder="نام خریدار یا فروشنده؛ بدون دفتر اشخاص"></label>
+        <label class="span-two">یادداشت<textarea id="document-notes" rows="2" maxlength="1000" placeholder="توضیحات اختیاری"></textarea></label>
+      </div>
+      <div class="section-heading compact-heading"><div><h2>اقلام سند</h2><p>قیمت‌ها به ریال و مقادیر وزنی تا سه رقم اعشار هستند.</p></div><button type="button" class="secondary-button" id="add-document-item">＋ افزودن قلم</button></div>
+      <div id="document-items" class="document-items"></div>
+      <div class="document-total"><span>جمع کل سند</span><strong id="document-total">۰ ریال</strong></div>
+      <p class="form-error" id="document-form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button type="button" class="secondary-button" id="cancel-document">انصراف</button><button type="button" class="secondary-button" id="save-document-draft">ذخیرهٔ پیش‌نویس</button><button type="submit" class="primary-button" id="finalize-document">ثبت قطعی</button></div>
     </form>
   </dialog>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
