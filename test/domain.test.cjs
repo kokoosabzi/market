@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { roundRatio, calculateLine } = require('../electron/domain.cjs');
+const { roundRatio, calculateLine, calculateProfit } = require('../electron/domain.cjs');
 
 test('integer ratio rounds half up without floating-point money arithmetic', () => {
   assert.equal(roundRatio(5n, 2n), 3);
@@ -20,4 +20,28 @@ test('fixed discounts are capped at gross and invalid percentages are rejected',
   assert.throws(() => calculateLine({ quantityMilli: 1000, unitPriceIrr: 1000, discountType: 'percent', discountValue: 101 }), /between 0 and 100/);
   assert.throws(() => calculateLine({ quantityMilli: 1000, unitPriceIrr: 1.5 }), /integer in rials/);
   assert.throws(() => calculateLine({ quantityMilli: 0, unitPriceIrr: 1 }), /positive integer/);
+});
+
+
+test('gross profit excludes tax, nets finalized returned quantity, and uses sale cost snapshots', () => {
+  const result = calculateProfit([
+    { quantityMilli: 3000, returnedQuantityMilli: 1000, grossIrr: 33000, discountIrr: 3000, unitCostSnapshotIrr: 10000, costStatus: 'known' }
+  ]);
+  assert.deepEqual(result, { revenueIrr: 20000, costIrr: 20000, profitIrr: 0, costStatus: 'known' });
+});
+test('gross profit marks unknown costs instead of inventing a profit', () => {
+  const result = calculateProfit([
+    { quantityMilli: 1000, returnedQuantityMilli: 0, grossIrr: 12000, discountIrr: 0, unitCostSnapshotIrr: null, costStatus: 'unknown' }
+  ]);
+  assert.deepEqual(result, { revenueIrr: 12000, costIrr: null, profitIrr: null, costStatus: 'unknown' });
+});
+test('gross profit labels estimated costs and handles fully returned lines', () => {
+  const estimated = calculateProfit([
+    { quantityMilli: 2000, returnedQuantityMilli: 0, grossIrr: 10000, discountIrr: 0, unitCostSnapshotIrr: 3000, costStatus: 'estimated' }
+  ]);
+  assert.deepEqual(estimated, { revenueIrr: 10000, costIrr: 6000, profitIrr: 4000, costStatus: 'estimated' });
+  const returned = calculateProfit([
+    { quantityMilli: 1000, returnedQuantityMilli: 1000, grossIrr: 9000, discountIrr: 0, unitCostSnapshotIrr: null, costStatus: 'unknown' }
+  ]);
+  assert.deepEqual(returned, { revenueIrr: 0, costIrr: 0, profitIrr: 0, costStatus: 'known' });
 });
