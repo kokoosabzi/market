@@ -21,6 +21,9 @@
         <button class="nav-item" data-page="purchase"><span class="nav-icon">↙</span> خریدها</button>
         <button class="nav-item" data-page="sale"><span class="nav-icon">↗</span> فروش‌ها</button>
         <button class="nav-item" data-page="inventory"><span class="nav-icon">▥</span> موجودی</button>
+        <button class="nav-item" data-page="returns"><span class="nav-icon">↩</span> برگشت‌ها</button>
+        <button class="nav-item" data-page="reports"><span class="nav-icon">▧</span> گزارش‌ها</button>
+        <button class="nav-item" data-page="backup"><span class="nav-icon">⬇</span> پشتیبان‌گیری</button>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span> تنظیمات</button>
       </nav>
       <div class="sidebar-bottom"><span class="status-dot"></span><div><strong>حالت آفلاین</strong><small>اطلاعات روی همین دستگاه</small></div></div>
@@ -64,6 +67,24 @@
         <div class="table-wrap"><table><thead><tr><th>کد</th><th>نام کالا</th><th>واحد</th><th>موجودی</th><th>آخرین قیمت خرید</th><th>ارزش‌گذاری جاری</th></tr></thead><tbody id="inventory-table"><tr><td colspan="6" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
         <p class="table-footnote">ارزش‌گذاری بر پایهٔ آخرین قیمت خرید معتبر است؛ بهای تمام‌شدهٔ اسناد فروش قطعی بازنویسی نمی‌شود.</p>
       </section>
+      <section id="returns-page" class="page" hidden>
+        <div class="section-heading"><div><h2>برگشت خرید و فروش</h2><p>هر برگشت به سند قطعی اصلی متصل است و سقف مقدار قابل برگشت کنترل می‌شود.</p></div><button class="primary-button" id="new-return">＋ برگشت جدید</button></div>
+        <div class="table-wrap"><table><thead><tr><th>شماره برگشت</th><th>نوع</th><th>سند اصلی</th><th>تاریخ</th><th>علت</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="returns-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+      </section>
+      <section id="reports-page" class="page" hidden>
+        <div class="section-heading"><div><h2>گزارش‌ها و خروجی</h2><p>خروجی‌های محلی از داده‌های ثبت‌شده؛ CSV در Excel قابل بازکردن است.</p></div></div>
+        <div class="report-grid">
+          <article class="report-card"><span class="report-icon">▥</span><div><strong>گزارش موجودی</strong><p>موجودی جاری، آخرین قیمت خرید و ارزش‌گذاری بر اساس سیاست بهای تمام‌شده.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="inventory">خروجی CSV</button><button class="secondary-button" data-export-pdf="inventory">خروجی PDF</button></div></article>
+          <article class="report-card"><span class="report-icon">↙</span><div><strong>گزارش خریدها</strong><p>اسناد خرید، وضعیت، تخفیف، مالیات و جمع کل به ریال.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="purchase">خروجی CSV</button><button class="secondary-button" data-export-pdf="purchase">خروجی PDF</button></div></article>
+          <article class="report-card"><span class="report-icon">↗</span><div><strong>گزارش فروش‌ها</strong><p>اسناد فروش ثبت‌شده و جمع‌های نهایی؛ بهای تاریخی در سند محفوظ می‌ماند.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="sale">خروجی CSV</button><button class="secondary-button" data-export-pdf="sale">خروجی PDF</button></div></article>
+          <article class="report-card"><span class="report-icon">↩</span><div><strong>گزارش برگشت‌ها</strong><p>ارتباط برگشت‌ها با سند اصلی و علت ثبت‌شده.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="returns">خروجی CSV</button><button class="secondary-button" data-export-pdf="returns">خروجی PDF</button></div></article>
+        </div>
+      </section>
+      <section id="backup-page" class="page" hidden>
+        <div class="section-heading"><div><h2>پشتیبان‌گیری و بازیابی</h2><p>فایل پشتیبان SQLite را خارج از پوشهٔ نصب نگه دارید. بازیابی، دادهٔ جاری را جایگزین می‌کند.</p></div></div>
+        <div class="backup-panel"><div class="backup-symbol">⬇</div><div><h3>ساخت پشتیبان معتبر</h3><p>پشتیبان با API سازگار SQLite ساخته و پس از ایجاد، از نظر سلامت پایگاه و شناسهٔ برنامه بررسی می‌شود.</p><button id="create-backup" class="primary-button">ساخت فایل پشتیبان</button></div></div>
+        <div class="backup-panel warning-panel"><div class="backup-symbol">↻</div><div><h3>بازیابی از فایل پشتیبان</h3><p>پیش از جایگزینی، یک نسخهٔ ایمنی از دادهٔ جاری در پوشهٔ دادهٔ برنامه نگهداری می‌شود. فایل ناسالم یا متعلق به برنامهٔ دیگر پذیرفته نمی‌شود.</p><button id="restore-backup" class="danger-button">انتخاب پشتیبان و بازیابی</button></div></div>
+      </section>
       <section id="settings-page" class="page" hidden>
         <div class="section-heading"><div><h2>تنظیمات نمایش</h2><p>ظاهر برنامه را مطابق سلیقهٔ خود تنظیم کنید</p></div></div>
         <div class="settings-card"><div><strong>پوستهٔ برنامه</strong><p>می‌توانید از حالت روشن، تیره یا تنظیم خودکار سیستم استفاده کنید.</p></div><div class="segmented-control" role="group" aria-label="پوسته"><button data-theme-choice="light" type="button">روشن</button><button data-theme-choice="dark" type="button">تیره</button><button data-theme-choice="system" type="button">خودکار</button></div></div>
@@ -105,6 +126,16 @@
       <div class="document-total"><span>جمع کل سند</span><strong id="document-total">۰ ریال</strong></div>
       <p class="form-error" id="document-form-error" role="alert" hidden></p>
       <div class="modal-actions"><button type="button" class="secondary-button" id="cancel-document">انصراف</button><button type="button" class="secondary-button" id="save-document-draft">ذخیرهٔ پیش‌نویس</button><button type="submit" class="primary-button" id="finalize-document">ثبت قطعی</button></div>
+    </form>
+  </dialog>
+  <dialog id="return-dialog" class="modal">
+    <form id="return-form" class="modal-form">
+      <div class="modal-heading"><div><span class="eyebrow">سند اصلاحی</span><h2>ثبت برگشت</h2></div><button id="close-return-dialog" class="icon-button" type="button" aria-label="بستن">×</button></div>
+      <label>سند اصلی <span class="required">*</span><select id="return-source" required><option value="">انتخاب سند قطعی…</option></select></label>
+      <div class="form-grid return-meta"><label>تاریخ برگشت <input id="return-date" type="date" required><small id="return-jalali-preview">نمایش شمسی پس از انتخاب تاریخ</small></label><label>علت برگشت <input id="return-reason" maxlength="500" required placeholder="مثلاً کالای معیوب یا انصراف"></label></div>
+      <div id="return-source-items" class="return-source-items"><p class="empty-cell">ابتدا سند اصلی را انتخاب کنید.</p></div>
+      <p class="form-error" id="return-form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button type="button" class="secondary-button" id="cancel-return">انصراف</button><button type="submit" class="primary-button" id="save-return">ثبت قطعی برگشت</button></div>
     </form>
   </dialog>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
