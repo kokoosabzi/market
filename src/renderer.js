@@ -114,7 +114,9 @@ async function submitReturn(event) {
 }
 async function exportReport(type, format) {
   try {
-    const result = format === 'csv' ? await window.marketApp.exportCsv(type) : await window.marketApp.exportPdf(type);
+    const filters = { from: $('report-from').value, to: $('report-to').value };
+    if (filters.from && filters.to && filters.from > filters.to) throw new Error('تاریخ شروع نباید بعد از تاریخ پایان باشد.');
+    const result = format === 'csv' ? await window.marketApp.exportCsv(type, filters) : await window.marketApp.exportPdf(type, filters);
     if (result.canceled) return;
     toast('گزارش ذخیره شد: ' + result.filePath + (result.count !== undefined ? ' · ' + digitsFa(result.count) + ' ردیف' : ''));
   } catch(error) { toast(error.message || 'خروجی گزارش ناموفق بود.', true); }
@@ -315,6 +317,9 @@ $('close-document-dialog').addEventListener('click', () => $('document-dialog').
 $('cancel-document').addEventListener('click', () => $('document-dialog').close());
 $('refresh-inventory').addEventListener('click', () => renderInventory().catch(e => toast(e.message, true)));
 
+$('report-from').addEventListener('change', () => { $('report-from-jalali').textContent = $('report-from').value ? jalaliPreview($('report-from').value) : 'بدون محدودیت شروع'; });
+$('report-to').addEventListener('change', () => { $('report-to-jalali').textContent = $('report-to').value ? jalaliPreview($('report-to').value) : 'بدون محدودیت پایان'; });
+$('clear-report-range').addEventListener('click', () => { $('report-from').value = ''; $('report-to').value = ''; $('report-from-jalali').textContent = 'بدون محدودیت شروع'; $('report-to-jalali').textContent = 'بدون محدودیت پایان'; });
 $('new-return').addEventListener('click', () => openReturnDialog().catch(e => toast(e.message, true)));
 $('return-source').addEventListener('change', () => renderReturnableItems($('return-source').value).catch(e => toast(e.message, true)));
 $('return-date').addEventListener('change', () => { $('return-jalali-preview').textContent = jalaliPreview($('return-date').value); });
