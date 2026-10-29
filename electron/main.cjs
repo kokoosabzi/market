@@ -152,8 +152,9 @@ function registerIpcHandlers() {
     if (!doc) throw new Error('سند پیدا نشد.');
     doc.items = database.prepare(`SELECT i.id, i.product_id AS productId, p.code AS productCode, p.name AS productName,
       p.unit, i.quantity_milli AS quantityMilli, i.unit_price_irr AS unitPriceIrr,
-      i.gross_irr AS grossIrr, i.discount_irr AS discountIrr, i.tax_irr AS taxIrr,
-      i.total_irr AS totalIrr, i.unit_cost_snapshot_irr AS unitCostSnapshotIrr, i.cost_status AS costStatus
+      i.gross_irr AS grossIrr, i.discount_type AS discountType, i.discount_value AS discountValue, i.tax_rate_bp AS taxRateBp,
+      i.discount_irr AS discountIrr, i.tax_irr AS taxIrr, i.total_irr AS totalIrr,
+      i.unit_cost_snapshot_irr AS unitCostSnapshotIrr, i.cost_status AS costStatus
       FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=? ORDER BY i.id`).all(id);
     return doc;
   });
