@@ -36,3 +36,18 @@ jobs:
           node -e 'const a=require("./npm-audit.json"); const v=a.metadata?.vulnerabilities||{}; console.log(JSON.stringify({metadata:v, vulnerabilities:Object.entries(a.vulnerabilities||{}).map(([name,x])=>({name,severity:x.severity,via:x.via.map(y=>typeof y==="string"?y:y.title),fixAvailable:x.fixAvailable}))},null,2)); if ((v.high||0)>0 || (v.critical||0)>0) process.exit(1)'
       - name: Run database and migration tests
         run: npm test
+      - name: Rebuild native SQLite module for Electron
+        run: npm run rebuild:native
+      - name: Smoke-test Electron, renderer IPC, and SQLite
+        run: npm run smoke:electron
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        run: npm run dist:win
+      - name: Upload Windows installer artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-windows-installer
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 7
