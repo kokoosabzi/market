@@ -187,6 +187,22 @@ function registerIpcHandlers() {
       return { id, status: 'draft', ...totals };
     })();
   });
+  ipcMain.handle('documents:preview-finalize', (_event, payload = {}) => {
+    const id = requireId(payload.id);
+    const doc = database.prepare("SELECT document_type AS type, status FROM documents WHERE id=?").get(id);
+    if (!doc || doc.status !== 'draft') throw new Error('فقط پیش‌نویس قابل بررسی است.');
+    if (doc.type !== 'sale') return { warnings: [] };
+    const rows = database.prepare(`SELECT i.product_id AS productId, i.quantity_milli AS quantityMilli, p.name AS productName,
+      COALESCE((SELECT SUM(quantity_delta_milli) FROM inventory_movements WHERE product_id=p.id),0) +
+      COALESCE((SELECT SUM(quantity_delta_milli) FROM return_movements WHERE product_id=p.id),0) AS stockMilli
+      FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=?`).all(id);
+    const totals = new Map();
+    for (const row of rows) {
+      const current = totals.get(row.productId) || { productName: row.productName, quantityMilli: 0, stockMilli: row.stockMilli };
+      current.quantityMilli += row.quantityMilli; totals.set(row.productId, current);
+    }
+    return { warnings: [...totals.values()].filter(row => row.stockMilli < row.quantityMilli) };
+  });
   ipcMain.handle('documents:finalize', (_event, payload = {}) => {
     const id = requireId(payload.id);
     return database.transaction(() => {
