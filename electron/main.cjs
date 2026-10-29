@@ -4,6 +4,7 @@ const Database = require('better-sqlite3');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { openDatabase } = require('./database.cjs');
+const { roundRatio, calculateLine } = require('./domain.cjs');
 
 if (process.env.MARKET_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.MARKET_USER_DATA_DIR));
 
@@ -106,10 +107,6 @@ function registerIpcHandlers() {
     return { id, active: Boolean(active) };
   });
 
-  function roundRatio(numerator, denominator) {
-    const n = BigInt(numerator), d = BigInt(denominator);
-    return Number((n + d / 2n) / d);
-  }
   function prepareDocumentItems(type, items) {
     if (!Array.isArray(items) || items.length < 1 || items.length > 200) throw new Error('سند باید حداقل یک قلم و حداکثر ۲۰۰ قلم داشته باشد.');
     return items.map((item, index) => {
@@ -120,16 +117,13 @@ function registerIpcHandlers() {
       if (!Number.isSafeInteger(quantityMilli) || quantityMilli <= 0) throw new Error('مقدار ردیف ' + (index + 1) + ' باید مثبت باشد.');
       if (['عدد', 'بسته', 'سرویس'].includes(product.unit) && quantityMilli % 1000 !== 0) throw new Error('برای کالای شمارشی، مقدار کسری مجاز نیست (ردیف ' + (index + 1) + ').');
       const unitPrice = requireMoney(item.unitPriceIrr, 'قیمت واحد ردیف ' + (index + 1));
-      const gross = roundRatio(BigInt(unitPrice) * BigInt(quantityMilli), 1000);
       const discountType = item.discountType || 'none';
       const discountValue = Number(item.discountValue || 0);
-      if (!['none', 'fixed', 'percent'].includes(discountType) || !Number.isSafeInteger(discountValue) || discountValue < 0) throw new Error('تخفیف ردیف ' + (index + 1) + ' معتبر نیست.');
-      if (discountType === 'percent' && discountValue > 100) throw new Error('درصد تخفیف باید بین صفر تا صد باشد.');
-      const discount = discountType === 'none' ? 0 : discountType === 'fixed' ? Math.min(gross, discountValue) : roundRatio(BigInt(gross) * BigInt(discountValue), 100);
       const taxRate = Number(item.taxRateBp || 0);
-      if (!Number.isSafeInteger(taxRate) || taxRate < 0 || taxRate > 10000) throw new Error('نرخ مالیات معتبر نیست.');
-      const tax = roundRatio(BigInt(gross - discount) * BigInt(taxRate), 10000);
-      return { product, productId, quantityMilli, unitPrice, discountType, discountValue, gross, discount, taxRate, tax, total: gross - discount + tax };
+      let amounts;
+      try { amounts = calculateLine({ quantityMilli, unitPriceIrr: unitPrice, discountType, discountValue, taxRateBp: taxRate }); }
+      catch (error) { throw new Error('اطلاعات مبلغ ردیف ' + (index + 1) + ' معتبر نیست: ' + error.message); }
+      return { product, productId, quantityMilli, unitPrice, discountType, discountValue, taxRate, ...amounts };
     });
   }
   function documentTotals(items) {
