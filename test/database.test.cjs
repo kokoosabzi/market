@@ -32,10 +32,29 @@ test('migrations are idempotent', (t) => {
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM app_meta').get().count, 2);
 });
 
+test('a database transaction commits atomically and rolls back on error', (t) => {
+  const f = fixture();
+  t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
+  const db = openDatabase(f.databasePath, f.migrationsDir);
+  t.after(() => { if (db.open) db.close(); });
+
+  db.transaction(() => {
+    db.prepare('INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)').run('theme', 'light');
+  })();
+  assert.equal(db.prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'theme'").get().setting_value, 'light');
+
+  assert.throws(() => db.transaction(() => {
+    db.prepare('INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)').run('temporary', 'value');
+    throw new Error('force rollback');
+  })());
+  assert.equal(db.prepare("SELECT setting_key FROM app_settings WHERE setting_key = 'temporary'").get(), undefined);
+});
+
 test('a failed migration rolls back and is not recorded', (t) => {
   const f = fixture();
   const migrationsDir = path.join(f.directory, 'migrations');
   fs.mkdirSync(migrationsDir, { recursive: true });
+  fs.mkdirSync(path.dirname(f.databasePath), { recursive: true });
   fs.writeFileSync(path.join(migrationsDir, '001_broken.sql'), 'CREATE TABLE should_rollback (id INTEGER PRIMARY KEY); SELECT * FROM missing_table;');
   t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
   const Database = require('better-sqlite3');
