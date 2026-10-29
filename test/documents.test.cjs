@@ -12,7 +12,7 @@ function fixture() {
 }
 test('document and inventory schema preserve integer quantities and document history', t => {
   const f = fixture(); t.after(() => { f.db.close(); fs.rmSync(f.dir, { recursive: true, force: true }); });
-  assert.equal(f.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 3);
+  assert.equal(f.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 4);
   const productId = f.db.prepare('INSERT INTO products(code,name,sale_price_irr) VALUES(?,?,?)').run('D-1','کالای آزمایشی',5000).lastInsertRowid;
   const documentId = f.db.prepare("INSERT INTO documents(document_type,document_number,document_date,status) VALUES('purchase','BUY-00000001','2026-10-29','finalized')").run().lastInsertRowid;
   const itemId = f.db.prepare("INSERT INTO document_items(document_id,product_id,quantity_milli,unit_price_irr,gross_irr,discount_irr,tax_irr,total_irr) VALUES(?,?,1000,3000,3000,0,0,3000)").run(documentId,productId).lastInsertRowid;
