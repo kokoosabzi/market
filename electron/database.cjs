@@ -29,6 +29,20 @@ function runMigrations(db, migrationsDir) {
     seenVersions.add(migration.version);
   }
 
+  const appliedMigrations = db.prepare(
+    'SELECT version, name FROM schema_migrations ORDER BY version'
+  ).all();
+  const migrationsByVersion = new Map(migrations.map((migration) => [migration.version, migration]));
+
+  for (const applied of appliedMigrations) {
+    const localMigration = migrationsByVersion.get(applied.version);
+    if (!localMigration || localMigration.name !== applied.name) {
+      const localName = localMigration ? localMigration.name : 'missing';
+      throw new Error('Migration history mismatch at version ' + applied.version +
+        ': database has "' + applied.name + '" but local migration is "' + localName + '"');
+    }
+  }
+
   const hasMigration = db.prepare('SELECT 1 FROM schema_migrations WHERE version = ?');
   const recordMigration = db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)');
   for (const migration of migrations) {
