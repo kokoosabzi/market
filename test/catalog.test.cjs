@@ -12,7 +12,7 @@ function fixture() {
 }
 test('catalog migration creates unique product codes and category names', t => {
   const f = fixture(); t.after(() => { f.db.close(); fs.rmSync(f.dir, { recursive: true, force: true }); });
-  assert.equal(f.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 2);
+  assert.equal(f.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 3);
   f.db.prepare('INSERT INTO categories(name) VALUES (?)').run('خوراکی');
   assert.throws(() => f.db.prepare('INSERT INTO categories(name) VALUES (?)').run('خوراکی'));
   f.db.prepare("INSERT INTO products(code,name,sale_price_irr) VALUES (?,?,?)").run('P-1', 'کالای نمونه', 12000);
