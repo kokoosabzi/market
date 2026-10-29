@@ -129,3 +129,26 @@ test('rejects an empty migration history when application tables already exist',
     /application tables exist but no migrations are recorded/
   );
 });
+
+
+test('rejects empty migration history when unrelated application tables remain', (t) => {
+  const f = fixture();
+  const db = openDatabase(f.databasePath, f.migrationsDir);
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
+
+  db.exec('CREATE TABLE orphaned_business_table (id INTEGER PRIMARY KEY)');
+  db.prepare('DELETE FROM schema_migrations').run();
+  db.exec('DROP TABLE app_settings; DROP TABLE app_meta');
+
+  assert.throws(
+    () => runMigrations(db, f.migrationsDir),
+    /application tables exist but no migrations are recorded/
+  );
+  assert.equal(
+    db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'orphaned_business_table'").get().name,
+    'orphaned_business_table'
+  );
+});
