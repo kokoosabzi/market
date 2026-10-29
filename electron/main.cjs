@@ -232,12 +232,12 @@ function registerIpcHandlers() {
     return database.transaction(() => {
       const doc = database.prepare('SELECT * FROM documents WHERE id=?').get(id);
       if (!doc || doc.status !== 'finalized') throw new Error('فقط سند نهایی قابل ابطال است.');
-      const dependent = database.prepare('SELECT 1 FROM documents WHERE status='finalized' AND id<>? AND id>? LIMIT 1').get(id, id);
+      const dependent = database.prepare("SELECT 1 FROM documents WHERE status='finalized' AND id<>? AND id>? LIMIT 1").get(id, id);
       if (dependent) throw new Error('برای ایمنی، ابطال سند دارای اسناد نهایی بعدی از این مسیر مجاز نیست.');
       const items = database.prepare('SELECT * FROM document_items WHERE document_id=?').all(id);
       const addMovement = database.prepare("INSERT INTO inventory_movements(product_id,document_id,document_item_id,quantity_delta_milli,event_type) VALUES(?,?,?,?, 'void')");
       for (const item of items) {
-        const original = database.prepare('SELECT quantity_delta_milli FROM inventory_movements WHERE document_item_id=? AND event_type IN ('purchase','sale')').get(item.id);
+        const original = database.prepare("SELECT quantity_delta_milli FROM inventory_movements WHERE document_item_id=? AND event_type IN ('purchase','sale')").get(item.id);
         if (original) addMovement.run(item.product_id, id, item.id, -original.quantity_delta_milli);
       }
       database.prepare("UPDATE documents SET status='voided', void_reason=?, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=?").run(reason, id);
