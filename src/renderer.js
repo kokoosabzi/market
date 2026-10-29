@@ -233,7 +233,7 @@ function openProduct(product = null) {
   $('product-form').reset(); $('product-form-error').hidden = true;
   $('product-id').value = product?.id || ''; $('product-code').value = product?.code || '';
   $('product-name').value = product?.name || ''; $('product-unit').value = product?.unit || 'عدد';
-  $('product-purchase-price').value = product?.purchasePriceIrr ?? ''; $('product-sale-price').value = product?.salePriceIrr ?? 0;
+  $('product-sale-price').value = product?.salePriceIrr ?? 0;
   $('product-min-stock').value = product ? Number(product.minStockMilli || 0) / 1000 : 0; $('product-description').value = product?.description || '';
   $('product-dialog-title').textContent = product ? 'ویرایش مشخصات کالا' : 'ثبت کالای جدید';
   fillCategorySelect(product?.categoryId || '').then(() => $('product-dialog').showModal()).catch(e => toast(e.message, true));
@@ -244,7 +244,7 @@ async function saveProduct(event) {
     await window.marketApp.saveProduct({
       id: $('product-id').value || null, code: $('product-code').value, name: $('product-name').value,
       categoryId: $('product-category').value || null, unit: $('product-unit').value,
-      purchasePriceIrr: $('product-purchase-price').value, salePriceIrr: $('product-sale-price').value,
+      salePriceIrr: $('product-sale-price').value,
       minStockMilli: Math.round(Number($('product-min-stock').value) * 1000), description: $('product-description').value
     });
     $('product-dialog').close(); toast('اطلاعات کالا ذخیره شد.'); await renderProducts(); await renderDashboard();
