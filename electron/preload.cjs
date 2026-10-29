@@ -9,5 +9,11 @@ contextBridge.exposeInMainWorld('marketApp', Object.freeze({
   saveCategory: (category) => ipcRenderer.invoke('catalog:save-category', category),
   listProducts: (filters = {}) => ipcRenderer.invoke('catalog:list-products', filters),
   saveProduct: (product) => ipcRenderer.invoke('catalog:save-product', product),
-  setProductActive: (id, active) => ipcRenderer.invoke('catalog:set-product-active', { id, active })
+  setProductActive: (id, active) => ipcRenderer.invoke('catalog:set-product-active', { id, active }),
+  listDocuments: (type) => ipcRenderer.invoke('documents:list', { type }),
+  getDocument: (id) => ipcRenderer.invoke('documents:get', { id }),
+  saveDocumentDraft: (document) => ipcRenderer.invoke('documents:save-draft', document),
+  finalizeDocument: (id) => ipcRenderer.invoke('documents:finalize', { id }),
+  voidDocument: (id, reason) => ipcRenderer.invoke('documents:void', { id, reason }),
+  listInventory: () => ipcRenderer.invoke('inventory:list')
 }));
