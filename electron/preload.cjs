@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('marketApp', Object.freeze({
   listDocuments: (type) => ipcRenderer.invoke('documents:list', { type }),
   getDocument: (id) => ipcRenderer.invoke('documents:get', { id }),
   saveDocumentDraft: (document) => ipcRenderer.invoke('documents:save-draft', document),
+  previewDocumentFinalization: (id) => ipcRenderer.invoke('documents:preview-finalize', { id }),
   finalizeDocument: (id) => ipcRenderer.invoke('documents:finalize', { id }),
   voidDocument: (id, reason) => ipcRenderer.invoke('documents:void', { id, reason }),
   listInventory: () => ipcRenderer.invoke('inventory:list'),
