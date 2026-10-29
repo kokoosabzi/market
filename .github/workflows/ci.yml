@@ -35,6 +35,8 @@ jobs:
           path: package-lock.json
           if-no-files-found: error
           retention-days: 7
+      - name: Verify lockfile with a clean npm ci install
+        run: npm ci
       - name: Audit dependency vulnerabilities
         shell: bash
         run: |
@@ -57,3 +59,40 @@ jobs:
           path: release/*.exe
           if-no-files-found: error
           retention-days: 7
+
+  commit-lockfile:
+    name: Commit generated lockfile
+    needs: test
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.ref == 'feature/phase-1-electron-sqlite' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Download generated lockfile
+        uses: actions/download-artifact@v4
+        with:
+          name: market-package-lock-ubuntu-latest
+          path: lockfile
+      - name: Add lockfile if it is missing
+        shell: bash
+        env:
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "package-lock.json already exists; no commit required."
+            exit 0
+          fi
+          test -s lockfile/package-lock.json
+          cp lockfile/package-lock.json package-lock.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "build: add npm dependency lockfile"
+          git push origin "HEAD:${TARGET_BRANCH}"
