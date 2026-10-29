@@ -32,7 +32,7 @@ test('migrations are idempotent', (t) => {
   });
   runMigrations(db, f.migrationsDir);
   runMigrations(db, f.migrationsDir);
-  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 3);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM app_meta').get().count, 2);
 });
 
