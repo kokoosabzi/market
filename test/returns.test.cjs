@@ -21,6 +21,8 @@ test('return rows link to original document lines and retain status history', t 
   f.db.prepare('UPDATE returns SET status=? WHERE id=?').run('finalized',returnId);
   f.db.prepare('INSERT INTO return_movements(return_id,return_item_id,product_id,quantity_delta_milli) VALUES(?,?,?,?)').run(returnId,1,productId,1000);
   assert.equal(f.db.prepare('SELECT SUM(quantity_delta_milli) AS qty FROM return_movements WHERE product_id=?').get(productId).qty,1000);
+  f.db.prepare("INSERT INTO return_movements(return_id,return_item_id,product_id,quantity_delta_milli,event_type) VALUES(?,?,?,-1000,'void')").run(returnId,1,productId);
+  assert.equal(f.db.prepare('SELECT SUM(quantity_delta_milli) AS qty FROM return_movements WHERE product_id=?').get(productId).qty,0);
   assert.throws(() => f.db.prepare("INSERT INTO return_movements(return_id,return_item_id,product_id,quantity_delta_milli) VALUES(?,?,?,?)").run(returnId,1,productId,1000));
   assert.equal(f.db.prepare('SELECT source_document_id FROM returns WHERE id=?').get(returnId).source_document_id,documentId);
 });
