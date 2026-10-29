@@ -344,7 +344,7 @@ function registerIpcHandlers() {
 
   function reportRows(type, from = '', to = '') {
     for (const [label, value] of [['شروع', from], ['پایان', to]]) {
-      if (value && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value) ||
+      if (value && (!/^\d{4}-\d{2}-\d{2}$/.test(value) ||
           Number.isNaN(Date.parse(value + 'T00:00:00Z')) ||
           new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) !== value)) {
         throw new Error('تاریخ ' + label + ' گزارش معتبر نیست.');
@@ -433,7 +433,7 @@ function registerIpcHandlers() {
     const printWindow = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
     try {
       await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
-      const pdf = await printWindow.webContents.printToPDF({ printBackground: true, pageSize: 'A4', landscape: type === 'inventory' });
+      const pdf = await printWindow.webContents.printToPDF({ printBackground: true, pageSize: 'A4', landscape: type === 'inventory' || type === 'profit' });
       fs.writeFileSync(choice.filePath, pdf);
     } finally { printWindow.destroy(); }
     return { canceled: false, filePath: choice.filePath, count: rows.length };
