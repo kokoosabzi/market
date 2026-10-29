@@ -15,5 +15,9 @@ contextBridge.exposeInMainWorld('marketApp', Object.freeze({
   saveDocumentDraft: (document) => ipcRenderer.invoke('documents:save-draft', document),
   finalizeDocument: (id) => ipcRenderer.invoke('documents:finalize', { id }),
   voidDocument: (id, reason) => ipcRenderer.invoke('documents:void', { id, reason }),
-  listInventory: () => ipcRenderer.invoke('inventory:list')
+  listInventory: () => ipcRenderer.invoke('inventory:list'),
+  listReturns: () => ipcRenderer.invoke('returns:list'),
+  listReturnableItems: (sourceDocumentId) => ipcRenderer.invoke('returns:list-eligible-items', { sourceDocumentId }),
+  createReturnDraft: (payload) => ipcRenderer.invoke('returns:create-draft', payload),
+  finalizeReturn: (id) => ipcRenderer.invoke('returns:finalize', { id })
 }));
