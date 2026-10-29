@@ -8,7 +8,7 @@
     "prestart": "npm run rebuild:native",
     "start": "electron .",
     "test": "node --test",
-    "smoke:electron": "node test/electron-smoke.cjs",
+    "smoke:electron": "node scripts/electron-smoke.cjs",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
     "dist:win": "electron-builder --win nsis"
   },
@@ -30,7 +30,6 @@
     "files": [
       "electron/**/*",
       "src/**/*",
-      "test/electron-smoke.cjs",
       "package.json",
       "node_modules/better-sqlite3/**/*"
     ],
