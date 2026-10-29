@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const state = { page: 'dashboard', theme: 'system', moneyDisplay: 'irr', products: [], categories: [] };
-const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'اسناد فروش', inventory: 'وضعیت موجودی', settings: 'تنظیمات' };
+const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'اسناد فروش', inventory: 'وضعیت موجودی', returns: 'برگشت‌ها', reports: 'گزارش‌ها', backup: 'پشتیبان‌گیری', settings: 'تنظیمات' };
 const digitsFa = (value) => String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
 const formatMoney = (value) => {
   if (value === null || value === undefined) return '—';
@@ -29,6 +29,7 @@ async function goTo(page) {
   if (page === 'categories') await renderCategories();
   if (page === 'purchase' || page === 'sale') await renderDocuments(page);
   if (page === 'inventory') await renderInventory();
+  if (page === 'returns') await renderReturns();
 }
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -75,6 +76,49 @@ async function fillCategorySelect(selected = '') {
   $('product-category').value = String(selected || '');
 }
 
+
+async function renderReturns() {
+  const rows = await window.marketApp.listReturns();
+  $('returns-table').innerHTML = rows.length ? rows.map(r => '<tr><td><span class="product-code">' + escapeHtml(r.returnNumber) + '</span></td><td>' + (r.type === 'purchase' ? 'برگشت خرید' : 'برگشت فروش') + '</td><td>' + escapeHtml(r.sourceDocumentNumber) + '</td><td>' + escapeHtml(r.returnDate) + '<small class="date-jalali">' + escapeHtml(jalaliPreview(r.returnDate)) + '</small></td><td>' + escapeHtml(r.reason) + '</td><td><span class="status-pill ' + (r.status === 'finalized' ? '' : 'inactive') + '">' + (r.status === 'finalized' ? 'قطعی' : r.status === 'voided' ? 'باطل' : 'پیش‌نویس') + '</span></td><td>' + (r.status === 'draft' ? '<button class="small-action" data-finalize-return="' + r.id + '">تکمیل ثبت</button>' : '—') + '</td></tr>').join('') : '<tr><td colspan="7" class="empty-cell">هنوز برگشتی ثبت نشده است.</td></tr>';
+}
+async function openReturnDialog() {
+  const [purchases, sales] = await Promise.all([window.marketApp.listDocuments('purchase'), window.marketApp.listDocuments('sale')]);
+  const sources = [...purchases, ...sales].filter(d => d.status === 'finalized');
+  $('return-form').reset(); $('return-form-error').hidden = true; $('return-source-items').innerHTML = '<p class="empty-cell">ابتدا سند اصلی را انتخاب کنید.</p>';
+  $('return-date').value = localIsoDate(); $('return-jalali-preview').textContent = jalaliPreview($('return-date').value);
+  $('return-source').innerHTML = '<option value="">انتخاب سند قطعی…</option>' + sources.map(d => '<option value="' + d.id + '">' + (purchases.some(p => p.id === d.id) ? 'خرید' : 'فروش') + ' · ' + escapeHtml(d.documentNumber) + ' · ' + escapeHtml(d.documentDate) + ' · ' + formatMoney(d.totalIrr) + '</option>').join('');
+  $('return-dialog').showModal();
+}
+async function renderReturnableItems(sourceId) {
+  if (!sourceId) { $('return-source-items').innerHTML = '<p class="empty-cell">ابتدا سند اصلی را انتخاب کنید.</p>'; return; }
+  const data = await window.marketApp.listReturnableItems(Number(sourceId));
+  $('return-source-items').innerHTML = '<div class="table-wrap"><table><thead><tr><th>کالا</th><th>مقدار اصلی</th><th>قابل برگشت</th><th>مقدار برگشتی</th></tr></thead><tbody>' + data.items.map(item => {
+    const max = Number(item.returnableQuantityMilli || 0);
+    const step = ['عدد','بسته','سرویس'].includes(item.unit) ? 1 : 0.001;
+    return '<tr data-return-source-item="' + item.sourceDocumentItemId + '"><td>' + escapeHtml(item.productCode + ' · ' + item.productName) + '<small class="date-jalali">' + escapeHtml(item.unit) + '</small></td><td>' + quantityLabel(item.originalQuantityMilli) + '</td><td>' + quantityLabel(max) + '</td><td><input class="return-quantity" type="number" min="0" max="' + (max / 1000) + '" step="' + step + '" value="0" ' + (max === 0 ? 'disabled' : '') + ' aria-label="مقدار برگشتی"></td></tr>';
+  }).join('') + '</tbody></table></div>';
+}
+async function submitReturn(event) {
+  event.preventDefault(); $('save-return').disabled = true; $('return-form-error').hidden = true;
+  try {
+    const items = [...document.querySelectorAll('[data-return-source-item]')].map(row => ({
+      sourceDocumentItemId: Number(row.dataset.returnSourceItem),
+      quantityMilli: Math.round(Number(row.querySelector('.return-quantity').value || 0) * 1000)
+    })).filter(item => item.quantityMilli > 0);
+    const created = await window.marketApp.createReturnDraft({ sourceDocumentId: Number($('return-source').value), returnDate: $('return-date').value, reason: $('return-reason').value, items });
+    const finalized = await window.marketApp.finalizeReturn(created.id);
+    $('return-dialog').close(); toast('برگشت ' + finalized.returnNumber + ' قطعی شد.'); await renderReturns(); await renderInventory(); await renderDashboard();
+  } catch(error) {
+    $('return-form-error').textContent = error.message || 'ثبت برگشت ناموفق بود.'; $('return-form-error').hidden = false;
+  } finally { $('save-return').disabled = false; }
+}
+async function exportReport(type, format) {
+  try {
+    const result = format === 'csv' ? await window.marketApp.exportCsv(type) : await window.marketApp.exportPdf(type);
+    if (result.canceled) return;
+    toast('گزارش ذخیره شد: ' + result.filePath + (result.count !== undefined ? ' · ' + digitsFa(result.count) + ' ردیف' : ''));
+  } catch(error) { toast(error.message || 'خروجی گزارش ناموفق بود.', true); }
+}
 function localIsoDate() {
   const now = new Date();
   return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
@@ -217,6 +261,14 @@ document.addEventListener('click', async event => {
     try { const active = toggle.dataset.active !== '1'; await window.marketApp.setProductActive(Number(toggle.dataset.toggleProduct), active); toast(active ? 'کالا فعال شد.' : 'کالا غیرفعال شد.'); await renderProducts(); await renderDashboard(); }
     catch (error) { toast(error.message || 'تغییر وضعیت ناموفق بود.', true); } return;
   }
+  const newReturn = event.target.closest('#new-return');
+  if (newReturn) { try { await openReturnDialog(); } catch(e) { toast(e.message, true); } return; }
+  const finishReturn = event.target.closest('[data-finalize-return]');
+  if (finishReturn) { try { const r = await window.marketApp.finalizeReturn(Number(finishReturn.dataset.finalizeReturn)); toast('برگشت ' + r.returnNumber + ' قطعی شد.'); await renderReturns(); await renderInventory(); } catch(e) { toast(e.message, true); } return; }
+  const csvButton = event.target.closest('[data-export-csv]');
+  if (csvButton) { await exportReport(csvButton.dataset.exportCsv, 'csv'); return; }
+  const pdfButton = event.target.closest('[data-export-pdf]');
+  if (pdfButton) { await exportReport(pdfButton.dataset.exportPdf, 'pdf'); return; }
   const newDoc = event.target.closest('[data-new-document]');
   if (newDoc) { try { await openDocument(newDoc.dataset.newDocument); } catch(e) { toast(e.message, true); } return; }
   const editDoc = event.target.closest('[data-edit-document]');
@@ -262,6 +314,26 @@ $('document-form').addEventListener('submit', event => { event.preventDefault();
 $('close-document-dialog').addEventListener('click', () => $('document-dialog').close());
 $('cancel-document').addEventListener('click', () => $('document-dialog').close());
 $('refresh-inventory').addEventListener('click', () => renderInventory().catch(e => toast(e.message, true)));
+
+$('new-return').addEventListener('click', () => openReturnDialog().catch(e => toast(e.message, true)));
+$('return-source').addEventListener('change', () => renderReturnableItems($('return-source').value).catch(e => toast(e.message, true)));
+$('return-date').addEventListener('change', () => { $('return-jalali-preview').textContent = jalaliPreview($('return-date').value); });
+$('return-form').addEventListener('submit', submitReturn);
+$('close-return-dialog').addEventListener('click', () => $('return-dialog').close());
+$('cancel-return').addEventListener('click', () => $('return-dialog').close());
+$('create-backup').addEventListener('click', async () => {
+  const button = $('create-backup'); button.disabled = true;
+  try { const result = await window.marketApp.createBackup(); if (!result.canceled) toast('پشتیبان معتبر ذخیره شد: ' + result.filePath); }
+  catch(e) { toast(e.message || 'ساخت پشتیبان ناموفق بود.', true); }
+  finally { button.disabled = false; }
+});
+$('restore-backup').addEventListener('click', async () => {
+  if (!window.confirm('بازیابی، دادهٔ فعلی برنامه را جایگزین می‌کند. پیش از آن یک نسخهٔ ایمنی ساخته می‌شود. ادامه می‌دهید؟')) return;
+  const button = $('restore-backup'); button.disabled = true;
+  try { const result = await window.marketApp.restoreBackup(); if (!result.canceled) { toast('بازیابی موفق شد. نسخهٔ ایمنی: ' + result.safetyPath); window.setTimeout(() => window.location.reload(), 900); } }
+  catch(e) { toast(e.message || 'بازیابی ناموفق بود.', true); }
+  finally { button.disabled = false; }
+});
 window.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') button.click(); }));
   try {
