@@ -38,9 +38,11 @@ test('migrations are idempotent', (t) => {
 
 test('a database transaction commits atomically and rolls back on error', (t) => {
   const f = fixture();
-  t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
   const db = openDatabase(f.databasePath, f.migrationsDir);
-  t.after(() => { if (db.open) db.close(); });
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
 
   db.transaction(() => {
     db.prepare('INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)').run('theme', 'light');
