@@ -34,14 +34,14 @@
         <div class="top-actions"><span class="offline-label"><span class="status-dot"></span> پایگاه داده محلی</span><button id="theme-toggle" class="icon-button" type="button" aria-label="تغییر پوسته" title="تغییر پوسته">◐</button></div>
       </header>
       <section id="dashboard-page" class="page">
-        <div class="hero-panel"><div><span class="hero-tag">نسخهٔ دسکتاپ</span><h2>مدیریت فروشگاه، ساده و متمرکز</h2><p>اطلاعات کالاها را ثبت کنید و پایهٔ دادهٔ فروشگاه را برای مراحل بعدی آماده نگه دارید.</p><button class="primary-button" data-go="products">مدیریت کالاها <span>←</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-square square-one"></div><div class="art-square square-two"></div><div class="art-core">م</div></div></div>
+        <div class="hero-panel"><div><span class="hero-tag">نسخهٔ دسکتاپ</span><h2>مدیریت فروشگاه، ساده و متمرکز</h2><p>کالاها، خرید و فروش، موجودی و گزارش‌های فروشگاه را در یک محیط محلی و فارسی مدیریت کنید.</p><button class="primary-button" data-go="products">مدیریت کالاها <span>←</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-square square-one"></div><div class="art-square square-two"></div><div class="art-core">م</div></div></div>
         <div class="section-heading"><div><h2>وضعیت برنامه</h2><p>اطلاعات محلی و وضعیت پایگاه داده</p></div><span class="subtle-pill" id="app-version">در حال بررسی نسخه…</span></div>
         <div class="stats-grid">
           <article class="stat-card"><div class="stat-icon blue">▦</div><span>کالاهای ثبت‌شده</span><strong id="product-count">۰</strong><small>شامل کالاهای فعال و غیرفعال</small></article>
           <article class="stat-card"><div class="stat-icon violet">▤</div><span>دسته‌بندی‌ها</span><strong id="category-count">۰</strong><small>گروه‌بندی کالاها</small></article>
           <article class="stat-card"><div class="stat-icon green">◉</div><span>وضعیت پایگاه داده</span><strong id="database-status">در حال بررسی</strong><small id="database-location">مسیر محلی برنامه</small></article>
         </div>
-        <div class="notice-panel"><span class="notice-symbol">i</span><div><strong>یادآوری محدودهٔ نسخه</strong><p>این نسخه هنوز ابزار ثبت خرید و فروش یا حسابداری ندارد. در این مرحله می‌توانید کالاها و دسته‌بندی‌ها را مدیریت کنید؛ هیچ تراکنش مالی انجام نمی‌شود.</p></div></div>
+        <div class="notice-panel"><span class="notice-symbol">i</span><div><strong>یادآوری محدودهٔ نسخه</strong><p>این برنامه خرید و فروش کالا و گردش موجودی را ثبت می‌کند؛ پرداخت‌ها و تراکنش‌های بانکی خارج از برنامه انجام می‌شوند و هیچ دفتر دریافت‌وپرداختی در نسخهٔ اول وجود ندارد.</p></div></div>
       </section>
       <section id="products-page" class="page" hidden>
         <div class="section-heading"><div><h2>فهرست کالاها</h2><p>ثبت، جست‌وجو و نگهداری مشخصات کالا</p></div><button class="primary-button" id="new-product">＋ کالای جدید</button></div>
@@ -79,6 +79,7 @@
           <article class="report-card"><span class="report-icon">↙</span><div><strong>گزارش خریدها</strong><p>اسناد خرید، وضعیت، تخفیف، مالیات و جمع کل به ریال.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="purchase">خروجی CSV</button><button class="secondary-button" data-export-pdf="purchase">خروجی PDF</button></div></article>
           <article class="report-card"><span class="report-icon">↗</span><div><strong>گزارش فروش‌ها</strong><p>اسناد فروش ثبت‌شده و جمع‌های نهایی؛ بهای تاریخی در سند محفوظ می‌ماند.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="sale">خروجی CSV</button><button class="secondary-button" data-export-pdf="sale">خروجی PDF</button></div></article>
           <article class="report-card"><span class="report-icon">↩</span><div><strong>گزارش برگشت‌ها</strong><p>ارتباط برگشت‌ها با سند اصلی و علت ثبت‌شده.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="returns">خروجی CSV</button><button class="secondary-button" data-export-pdf="returns">خروجی PDF</button></div></article>
+          <article class="report-card"><span class="report-icon">∑</span><div><strong>گزارش سود ناخالص</strong><p>فروش خالص بدون مالیات، بهای تاریخی و تفکیک بهای معتبر، تخمینی یا نامشخص؛ برگشت‌های قطعی از مقدار فروش کسر می‌شوند.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="profit">خروجی CSV</button><button class="secondary-button" data-export-pdf="profit">خروجی PDF</button></div></article>
         </div>
       </section>
       <section id="backup-page" class="page" hidden>
