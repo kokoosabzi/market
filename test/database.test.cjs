@@ -25,9 +25,11 @@ test('opens a local database and applies initial migration', (t) => {
 
 test('migrations are idempotent', (t) => {
   const f = fixture();
-  t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
   const db = openDatabase(f.databasePath, f.migrationsDir);
-  t.after(() => { if (db.open) db.close(); });
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
   runMigrations(db, f.migrationsDir);
   runMigrations(db, f.migrationsDir);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 1);
@@ -58,10 +60,12 @@ test('a failed migration rolls back and is not recorded', (t) => {
   fs.mkdirSync(migrationsDir, { recursive: true });
   fs.mkdirSync(path.dirname(f.databasePath), { recursive: true });
   fs.writeFileSync(path.join(migrationsDir, '001_broken.sql'), 'CREATE TABLE should_rollback (id INTEGER PRIMARY KEY); SELECT * FROM missing_table;');
-  t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
   const Database = require('better-sqlite3');
   const db = new Database(f.databasePath);
-  t.after(() => { if (db.open) db.close(); });
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
   assert.throws(() => runMigrations(db, migrationsDir));
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'should_rollback'").get(), undefined);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 0);
