@@ -73,6 +73,7 @@
       </section>
       <section id="reports-page" class="page" hidden>
         <div class="section-heading"><div><h2>گزارش‌ها و خروجی</h2><p>خروجی‌های محلی از داده‌های ثبت‌شده؛ CSV در Excel قابل بازکردن است.</p></div></div>
+        <div class="report-range"><label>از تاریخ<input id="report-from" type="date"><small id="report-from-jalali">بدون محدودیت شروع</small></label><label>تا تاریخ<input id="report-to" type="date"><small id="report-to-jalali">بدون محدودیت پایان</small></label><button id="clear-report-range" class="secondary-button" type="button">پاک‌کردن بازه</button><p>فیلتر تاریخ روی خرید، فروش و برگشت اعمال می‌شود؛ گزارش موجودی، وضعیت جاری را نشان می‌دهد.</p></div>
         <div class="report-grid">
           <article class="report-card"><span class="report-icon">▥</span><div><strong>گزارش موجودی</strong><p>موجودی جاری، آخرین قیمت خرید و ارزش‌گذاری بر اساس سیاست بهای تمام‌شده.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="inventory">خروجی CSV</button><button class="secondary-button" data-export-pdf="inventory">خروجی PDF</button></div></article>
           <article class="report-card"><span class="report-icon">↙</span><div><strong>گزارش خریدها</strong><p>اسناد خرید، وضعیت، تخفیف، مالیات و جمع کل به ریال.</p></div><div class="report-actions"><button class="secondary-button" data-export-csv="purchase">خروجی CSV</button><button class="secondary-button" data-export-pdf="purchase">خروجی PDF</button></div></article>
