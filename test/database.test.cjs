@@ -102,6 +102,7 @@ test('rejects a missing earlier migration record when a later migration is recor
   fs.mkdirSync(migrationsDir, { recursive: true });
   fs.writeFileSync(path.join(migrationsDir, '001_first.sql'), 'CREATE TABLE first_table (id INTEGER PRIMARY KEY);');
   fs.writeFileSync(path.join(migrationsDir, '002_second.sql'), 'CREATE TABLE second_table (id INTEGER PRIMARY KEY);');
+  fs.mkdirSync(path.dirname(f.databasePath), { recursive: true });
   const Database = require('better-sqlite3');
   const db = new Database(f.databasePath);
   t.after(() => {
