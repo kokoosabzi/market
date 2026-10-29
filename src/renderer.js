@@ -220,6 +220,13 @@ async function submitDocument(finalize) {
   try {
     const saved = await window.marketApp.saveDocumentDraft(collectDocumentPayload());
     if (finalize) {
+      const preview = await window.marketApp.previewDocumentFinalization(saved.id);
+      if (preview.warnings?.length) {
+        const details = preview.warnings.map(w => w.productName + ' (موجودی: ' + quantityLabel(w.stockMilli) + '، فروش: ' + quantityLabel(w.quantityMilli) + ')').join('، ');
+        if (!window.confirm('هشدار موجودی منفی/ناکافی:\n' + details + '\n\nفروش با وجود موجودی ناکافی مجاز است. آیا با ثبت قطعی ادامه می‌دهید؟')) {
+          toast('پیش‌نویس ذخیره شد؛ ثبت قطعی به درخواست شما لغو شد.'); return;
+        }
+      }
       const result = await window.marketApp.finalizeDocument(saved.id);
       if (result.warnings?.length) toast('هشدار موجودی منفی: ' + result.warnings.map(w => w.productName).join('، ') + ' — سند ثبت شد و بهای تمام‌شدهٔ این اقلام تخمینی/نامشخص است.', true);
       else toast('سند ' + result.documentNumber + ' با موفقیت قطعی شد.');
