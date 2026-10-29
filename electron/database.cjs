@@ -66,7 +66,7 @@ function runMigrations(db, migrationsDir) {
   // application schema already exists, all migration records may have been lost.
   if (appliedMigrations.length === 0) {
     const existingApplicationTables = db.prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('app_settings', 'app_meta')"
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'schema_migrations'"
     ).all();
     if (existingApplicationTables.length > 0) {
       throw new Error('Incomplete migration history: application tables exist but no migrations are recorded');
