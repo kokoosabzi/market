@@ -234,9 +234,14 @@ function registerIpcHandlers() {
     return database.transaction(() => {
       const doc = database.prepare('SELECT * FROM documents WHERE id=?').get(id);
       if (!doc || doc.status !== 'finalized') throw new Error('فقط سند نهایی قابل ابطال است.');
-      const dependent = database.prepare("SELECT 1 FROM documents WHERE status='finalized' AND id<>? AND id>? LIMIT 1").get(id, id);
-      if (dependent) throw new Error('برای ایمنی، ابطال سند دارای اسناد نهایی بعدی از این مسیر مجاز نیست.');
       const items = database.prepare('SELECT * FROM document_items WHERE document_id=?').all(id);
+      const hasReturns = database.prepare("SELECT 1 FROM returns WHERE source_document_id=? AND status='finalized' LIMIT 1").get(id);
+      if (hasReturns) throw new Error('این سند برگشت قطعی دارد؛ ابتدا باید از مسیر اصلاحی سازگار اقدام شود.');
+      const dependent = database.prepare(`SELECT 1 FROM document_items target
+        JOIN document_items later ON later.product_id=target.product_id
+        JOIN documents d ON d.id=later.document_id
+        WHERE target.document_id=? AND d.status='finalized' AND d.id>? LIMIT 1`).get(id, id);
+      if (dependent) throw new Error('برای ایمنی، ابتدا اثر اسناد قطعی بعدی روی همین کالاها را بررسی کنید؛ ابطال مستقیم مسدود شد.');
       const addMovement = database.prepare("INSERT INTO inventory_movements(product_id,document_id,document_item_id,quantity_delta_milli,event_type) VALUES(?,?,?,?, 'void')");
       for (const item of items) {
         const original = database.prepare("SELECT quantity_delta_milli FROM inventory_movements WHERE document_item_id=? AND event_type IN ('purchase','sale')").get(item.id);
@@ -295,7 +300,7 @@ function registerIpcHandlers() {
         const returned = database.prepare(`SELECT COALESCE(SUM(ri.quantity_milli),0) AS qty FROM return_items ri JOIN returns r ON r.id=ri.return_id
           WHERE ri.source_document_item_id=? AND r.status IN ('draft','finalized')`).get(sourceItemId).qty;
         if (returned + quantity > original.quantity_milli) throw new Error('مقدار برگشتی از مقدار خالص قلم اصلی بیشتر است.');
-        const amount = roundRatio(BigInt(original.unit_price_irr) * BigInt(quantity), 1000);
+        const amount = roundRatio(BigInt(original.total_irr) * BigInt(quantity), BigInt(original.quantity_milli));
         insert.run(returnId, sourceItemId, original.product_id, quantity, amount);
       }
       return { id: returnId, returnNumber: 'RET-' + String(returnId).padStart(8, '0'), status: 'draft' };
