@@ -253,12 +253,84 @@ function registerIpcHandlers() {
       return { id, status: 'voided' };
     })();
   });
+
+  ipcMain.handle('returns:list-eligible-items', (_event, payload = {}) => {
+    const sourceId = requireId(payload.sourceDocumentId);
+    const source = database.prepare("SELECT id, document_type AS type, document_number AS documentNumber, status FROM documents WHERE id=?").get(sourceId);
+    if (!source || source.status !== 'finalized') throw new Error('فقط سند قطعی و معتبر قابل برگشت است.');
+    return { source, items: database.prepare(`SELECT i.id AS sourceDocumentItemId, i.product_id AS productId,
+      p.code AS productCode, p.name AS productName, p.unit, i.quantity_milli AS originalQuantityMilli,
+      i.unit_price_irr AS unitPriceIrr,
+      i.quantity_milli - COALESCE((SELECT SUM(ri.quantity_milli) FROM return_items ri JOIN returns r ON r.id=ri.return_id
+        WHERE ri.source_document_item_id=i.id AND r.status='finalized'),0) AS returnableQuantityMilli
+      FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=? ORDER BY i.id`).all(sourceId) };
+  });
+  ipcMain.handle('returns:list', () => database.prepare(`SELECT r.id, r.return_number AS returnNumber, r.return_type AS type,
+    r.source_document_id AS sourceDocumentId, d.document_number AS sourceDocumentNumber, r.return_date AS returnDate,
+    r.status, r.reason, (SELECT COUNT(*) FROM return_items ri WHERE ri.return_id=r.id) AS itemCount
+    FROM returns r JOIN documents d ON d.id=r.source_document_id ORDER BY r.id DESC LIMIT 200`).all());
+  ipcMain.handle('returns:create-draft', (_event, payload = {}) => {
+    const sourceId = requireId(payload.sourceDocumentId);
+    const date = requireText(payload.returnDate, 'تاریخ برگشت', 10);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z'))) throw new Error('تاریخ برگشت معتبر نیست.');
+    const reason = requireText(payload.reason, 'علت برگشت', 500);
+    if (!Array.isArray(payload.items) || !payload.items.length || payload.items.length > 200) throw new Error('حداقل یک قلم برگشت لازم است.');
+    return database.transaction(() => {
+      const source = database.prepare("SELECT * FROM documents WHERE id=? AND status='finalized'").get(sourceId);
+      if (!source) throw new Error('سند اصلی قطعی و معتبر نیست.');
+      const returnId = database.prepare(`INSERT INTO returns(return_number,return_type,source_document_id,return_date,reason)
+        VALUES(?,?,?,?,?)`).run('TEMP-RETURN-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8), source.document_type, sourceId, date, reason).lastInsertRowid;
+      database.prepare('UPDATE returns SET return_number=? WHERE id=?').run('RET-' + String(returnId).padStart(8, '0'), returnId);
+      const insert = database.prepare('INSERT INTO return_items(return_id,source_document_item_id,product_id,quantity_milli,amount_irr) VALUES(?,?,?,?,?)');
+      for (const [index, row] of payload.items.entries()) {
+        const sourceItemId = requireId(row.sourceDocumentItemId);
+        const original = database.prepare('SELECT * FROM document_items WHERE id=? AND document_id=?').get(sourceItemId, sourceId);
+        if (!original) throw new Error('قلم برگشت در سند اصلی وجود ندارد.');
+        const quantity = Number(row.quantityMilli);
+        if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error('مقدار برگشت ردیف ' + (index + 1) + ' معتبر نیست.');
+        const product = database.prepare('SELECT unit FROM products WHERE id=?').get(original.product_id);
+        if (['عدد', 'بسته', 'سرویس'].includes(product.unit) && quantity % 1000 !== 0) throw new Error('مقدار کالای شمارشی باید عدد صحیح باشد.');
+        const returned = database.prepare(`SELECT COALESCE(SUM(ri.quantity_milli),0) AS qty FROM return_items ri JOIN returns r ON r.id=ri.return_id
+          WHERE ri.source_document_item_id=? AND r.status IN ('draft','finalized')`).get(sourceItemId).qty;
+        if (returned + quantity > original.quantity_milli) throw new Error('مقدار برگشتی از مقدار خالص قلم اصلی بیشتر است.');
+        const amount = roundRatio(BigInt(original.unit_price_irr) * BigInt(quantity), 1000);
+        insert.run(returnId, sourceItemId, original.product_id, quantity, amount);
+      }
+      return { id: returnId, returnNumber: 'RET-' + String(returnId).padStart(8, '0'), status: 'draft' };
+    })();
+  });
+  ipcMain.handle('returns:finalize', (_event, payload = {}) => {
+    const id = requireId(payload.id);
+    return database.transaction(() => {
+      const ret = database.prepare('SELECT * FROM returns WHERE id=?').get(id);
+      if (!ret || ret.status !== 'draft') throw new Error('فقط پیش‌نویس برگشت قابل نهایی‌سازی است.');
+      const source = database.prepare("SELECT * FROM documents WHERE id=? AND status='finalized'").get(ret.source_document_id);
+      if (!source) throw new Error('سند اصلی دیگر معتبر نیست.');
+      const items = database.prepare('SELECT * FROM return_items WHERE return_id=?').all(id);
+      if (!items.length) throw new Error('برگشت بدون قلم قابل نهایی‌سازی نیست.');
+      for (const item of items) {
+        const already = database.prepare(`SELECT COALESCE(SUM(ri.quantity_milli),0) AS qty FROM return_items ri JOIN returns r ON r.id=ri.return_id
+          WHERE ri.source_document_item_id=? AND r.status='finalized'`).get(item.source_document_item_id).qty;
+        const original = database.prepare('SELECT quantity_milli FROM document_items WHERE id=?').get(item.source_document_item_id);
+        if (already + item.quantity_milli > original.quantity_milli) throw new Error('مقدار برگشتی در اسناد دیگر تغییر کرده؛ این برگشت را دوباره بررسی کنید.');
+      }
+      const movement = database.prepare('INSERT INTO return_movements(return_id,return_item_id,product_id,quantity_delta_milli) VALUES(?,?,?,?)');
+      for (const item of items) movement.run(id, item.id, item.product_id, ret.return_type === 'purchase' ? -item.quantity_milli : item.quantity_milli);
+      database.prepare("UPDATE returns SET status='finalized', finalized_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=?").run(id);
+      return { id, returnNumber: ret.return_number, status: 'finalized' };
+    })();
+  });
   ipcMain.handle('inventory:list', () => database.prepare(`SELECT p.id, p.code, p.name, p.unit,
-    COALESCE(SUM(m.quantity_delta_milli),0) AS quantityMilli,
+    COALESCE(m.quantityMilli,0) AS quantityMilli,
     p.purchase_price_irr AS latestPurchasePriceIrr,
-    CASE WHEN p.purchase_price_irr IS NULL THEN NULL ELSE p.purchase_price_irr * COALESCE(SUM(m.quantity_delta_milli),0) / 1000 END AS valuationIrr
-    FROM products p LEFT JOIN inventory_movements m ON m.product_id=p.id
-    WHERE p.is_active=1 GROUP BY p.id ORDER BY p.name COLLATE NOCASE`).all());
+    CASE WHEN p.purchase_price_irr IS NULL THEN NULL ELSE p.purchase_price_irr * COALESCE(m.quantityMilli,0) / 1000 END AS valuationIrr
+    FROM products p LEFT JOIN (
+      SELECT product_id, SUM(quantity_delta_milli) AS quantityMilli FROM (
+        SELECT product_id, quantity_delta_milli FROM inventory_movements
+        UNION ALL SELECT product_id, quantity_delta_milli FROM return_movements
+      ) GROUP BY product_id
+    ) m ON m.product_id=p.id
+    WHERE p.is_active=1 ORDER BY p.name COLLATE NOCASE`).all());
 }
 function runSmokeCheck() {
   if (!process.argv.includes('--smoke-test')) return;
