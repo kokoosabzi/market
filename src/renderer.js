@@ -131,6 +131,7 @@ function jalaliPreview(iso) {
   const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12));
   return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(date);
 }
+function roundIntegerRatio(numerator, denominator) { const n = BigInt(numerator), d = BigInt(denominator); return Number((n + d / 2n) / d); }
 function quantityLabel(milli) {
   const value = Number(milli || 0) / 1000;
   return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 3 }).format(value);
@@ -174,10 +175,10 @@ function addDocumentItem(item = null, products = null) {
   const type = $('document-type').value;
   const row = document.createElement('div'); row.className = 'document-item-row';
   const options = products.map(p => '<option value="' + p.id + '" data-unit="' + escapeHtml(p.unit) + '" data-purchase="' + (p.purchasePriceIrr ?? '') + '" data-sale="' + p.salePriceIrr + '">' + escapeHtml(p.code + ' · ' + p.name) + '</option>').join('');
-  row.innerHTML = '<label class="item-product-label">کالا<select class="item-product" required><option value="">انتخاب کالا…</option>' + options + '</select></label><label class="item-quantity-label">مقدار<input class="item-quantity" type="number" min="0.001" step="0.001" value="1" required inputmode="decimal"></label><label class="item-price-label">قیمت واحد (ریال)<input class="item-price" type="number" min="0" step="1" value="0" required inputmode="numeric"></label><div class="item-sum"><small>جمع قلم</small><strong>۰</strong></div><button class="remove-item" type="button" aria-label="حذف قلم">×</button>';
+  row.innerHTML = '<label class="item-product-label">کالا<select class="item-product" required><option value="">انتخاب کالا…</option>' + options + '</select></label><label class="item-quantity-label">مقدار<input class="item-quantity" type="number" min="0.001" step="0.001" value="1" required inputmode="decimal"></label><label class="item-price-label">قیمت واحد (ریال)<input class="item-price" type="number" min="0" step="1" value="0" required inputmode="numeric"></label><div class="item-discount-controls"><label>نوع تخفیف<select class="item-discount-type"><option value="none">بدون تخفیف</option><option value="fixed">مبلغ ثابت (ریال)</option><option value="percent">درصد</option></select></label><label>مقدار تخفیف<input class="item-discount-value" type="number" min="0" step="1" value="0" inputmode="numeric"></label></div><div class="item-sum"><small>جمع قلم</small><strong>۰</strong></div><button class="remove-item" type="button" aria-label="حذف قلم">×</button>';
   $('document-items').append(row);
   const select = row.querySelector('.item-product'), qty = row.querySelector('.item-quantity'), price = row.querySelector('.item-price');
-  if (item) { select.value = String(item.productId); qty.value = Number(item.quantityMilli) / 1000; price.value = item.unitPriceIrr; }
+  if (item) { select.value = String(item.productId); qty.value = Number(item.quantityMilli) / 1000; price.value = item.unitPriceIrr; row.querySelector('.item-discount-type').value = item.discountType || 'none'; row.querySelector('.item-discount-value').value = item.discountValue || 0; }
   select.addEventListener('change', () => {
     const opt = select.selectedOptions[0];
     if (opt) {
@@ -191,6 +192,8 @@ function addDocumentItem(item = null, products = null) {
     updateDocumentTotal();
   });
   qty.addEventListener('input', updateDocumentTotal); price.addEventListener('input', updateDocumentTotal);
+  row.querySelector('.item-discount-type').addEventListener('change', updateDocumentTotal);
+  row.querySelector('.item-discount-value').addEventListener('input', updateDocumentTotal);
   row.querySelector('.remove-item').addEventListener('click', () => { row.remove(); updateDocumentTotal(); });
   if (select.value) select.dispatchEvent(new Event('change'));
 }
@@ -199,7 +202,12 @@ function updateDocumentTotal() {
   document.querySelectorAll('.document-item-row').forEach(row => {
     const qty = Math.round(Number(row.querySelector('.item-quantity').value || 0) * 1000);
     const price = Math.max(0, Math.trunc(Number(row.querySelector('.item-price').value || 0)));
-    const sum = Math.round(qty * price / 1000); total += sum;
+    const gross = roundIntegerRatio(BigInt(price) * BigInt(qty), 1000);
+    const discountType = row.querySelector('.item-discount-type').value;
+    const discountValue = Math.max(0, Math.trunc(Number(row.querySelector('.item-discount-value').value || 0)));
+    const discount = discountType === 'fixed' ? Math.min(gross, discountValue) : discountType === 'percent' ? roundIntegerRatio(BigInt(gross) * BigInt(Math.min(100, discountValue)), 100) : 0;
+    const tax = roundIntegerRatio(BigInt(gross - discount) * BigInt(state.taxRateBp), 10000);
+    const sum = gross - discount + tax; total += sum;
     row.querySelector('.item-sum strong').textContent = formatMoney(sum);
   });
   $('document-total').textContent = formatMoney(total);
@@ -209,7 +217,7 @@ function collectDocumentPayload() {
     productId: row.querySelector('.item-product').value,
     quantityMilli: Math.round(Number(row.querySelector('.item-quantity').value) * 1000),
     unitPriceIrr: row.querySelector('.item-price').value,
-    discountType: 'none', discountValue: 0, taxRateBp: state.taxRateBp
+    discountType: row.querySelector('.item-discount-type').value, discountValue: Number(row.querySelector('.item-discount-value').value || 0), taxRateBp: state.taxRateBp
   }));
   return { id: $('document-id').value || null, type: $('document-type').value, documentDate: $('document-date').value,
     partyName: $('document-party').value, notes: $('document-notes').value, items };
