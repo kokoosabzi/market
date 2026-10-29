@@ -79,7 +79,7 @@ async function fillCategorySelect(selected = '') {
 
 async function renderReturns() {
   const rows = await window.marketApp.listReturns();
-  $('returns-table').innerHTML = rows.length ? rows.map(r => '<tr><td><span class="product-code">' + escapeHtml(r.returnNumber) + '</span></td><td>' + (r.type === 'purchase' ? 'برگشت خرید' : 'برگشت فروش') + '</td><td>' + escapeHtml(r.sourceDocumentNumber) + '</td><td>' + escapeHtml(r.returnDate) + '<small class="date-jalali">' + escapeHtml(jalaliPreview(r.returnDate)) + '</small></td><td>' + escapeHtml(r.reason) + '</td><td><span class="status-pill ' + (r.status === 'finalized' ? '' : 'inactive') + '">' + (r.status === 'finalized' ? 'قطعی' : r.status === 'voided' ? 'باطل' : 'پیش‌نویس') + '</span></td><td>' + (r.status === 'draft' ? '<button class="small-action" data-finalize-return="' + r.id + '">تکمیل ثبت</button>' : '—') + '</td></tr>').join('') : '<tr><td colspan="7" class="empty-cell">هنوز برگشتی ثبت نشده است.</td></tr>';
+  $('returns-table').innerHTML = rows.length ? rows.map(r => '<tr><td><span class="product-code">' + escapeHtml(r.returnNumber) + '</span></td><td>' + (r.type === 'purchase' ? 'برگشت خرید' : 'برگشت فروش') + '</td><td>' + escapeHtml(r.sourceDocumentNumber) + '</td><td>' + escapeHtml(r.returnDate) + '<small class="date-jalali">' + escapeHtml(jalaliPreview(r.returnDate)) + '</small></td><td>' + escapeHtml(r.reason) + '</td><td><span class="status-pill ' + (r.status === 'finalized' ? '' : 'inactive') + '">' + (r.status === 'finalized' ? 'قطعی' : r.status === 'voided' ? 'باطل' : 'پیش‌نویس') + '</span></td><td>' + (r.status === 'draft' ? '<button class="small-action" data-finalize-return="' + r.id + '">تکمیل ثبت</button>' : r.status === 'finalized' ? '<button class="small-action" data-void-return="' + r.id + '">ابطال با علت</button>' : '—') + '</td></tr>').join('') : '<tr><td colspan="7" class="empty-cell">هنوز برگشتی ثبت نشده است.</td></tr>';
 }
 async function openReturnDialog() {
   const [purchases, sales] = await Promise.all([window.marketApp.listDocuments('purchase'), window.marketApp.listDocuments('sale')]);
@@ -265,6 +265,15 @@ document.addEventListener('click', async event => {
   }
   const newReturn = event.target.closest('#new-return');
   if (newReturn) { try { await openReturnDialog(); } catch(e) { toast(e.message, true); } return; }
+  const voidReturn = event.target.closest('[data-void-return]');
+  if (voidReturn) {
+    const reason = window.prompt('علت ابطال برگشت را بنویسید:');
+    if (reason && reason.trim()) {
+      try { const result = await window.marketApp.voidReturn(Number(voidReturn.dataset.voidReturn), reason.trim()); toast('برگشت ' + result.returnNumber + ' با حفظ سابقه باطل شد.'); await renderReturns(); await renderInventory(); }
+      catch(e) { toast(e.message || 'ابطال برگشت ناموفق بود.', true); }
+    }
+    return;
+  }
   const finishReturn = event.target.closest('[data-finalize-return]');
   if (finishReturn) { try { const r = await window.marketApp.finalizeReturn(Number(finishReturn.dataset.finalizeReturn)); toast('برگشت ' + r.returnNumber + ' قطعی شد.'); await renderReturns(); await renderInventory(); } catch(e) { toast(e.message, true); } return; }
   const csvButton = event.target.closest('[data-export-csv]');
