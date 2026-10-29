@@ -162,7 +162,7 @@ function registerIpcHandlers() {
     const type = payload.type;
     if (!['purchase', 'sale'].includes(type)) throw new Error('نوع سند معتبر نیست.');
     const date = requireText(payload.documentDate, 'تاریخ سند', 10);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z'))) throw new Error('تاریخ سند معتبر نیست.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z'))) throw new Error('تاریخ سند معتبر نیست.');
     const partyName = typeof payload.partyName === 'string' ? payload.partyName.trim().slice(0, 160) : '';
     const notes = typeof payload.notes === 'string' ? payload.notes.trim().slice(0, 1000) : '';
     const items = prepareDocumentItems(type, payload.items);
@@ -293,7 +293,7 @@ function registerIpcHandlers() {
   ipcMain.handle('returns:create-draft', (_event, payload = {}) => {
     const sourceId = requireId(payload.sourceDocumentId);
     const date = requireText(payload.returnDate, 'تاریخ برگشت', 10);
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z'))) throw new Error('تاریخ برگشت معتبر نیست.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + 'T00:00:00Z'))) throw new Error('تاریخ برگشت معتبر نیست.');
     const reason = requireText(payload.reason, 'علت برگشت', 500);
     if (!Array.isArray(payload.items) || !payload.items.length || payload.items.length > 200) throw new Error('حداقل یک قلم برگشت لازم است.');
     return database.transaction(() => {
@@ -365,7 +365,7 @@ function registerIpcHandlers() {
   function csvCell(value) {
     if (value === null || value === undefined) return '';
     const text = String(value);
-    return /[",\\r\\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+    return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
   }
   ipcMain.handle('reports:export-csv', async (_event, payload = {}) => {
     const type = payload.type;
@@ -373,7 +373,7 @@ function registerIpcHandlers() {
     const headers = rows.length ? Object.keys(rows[0]) : (type === 'inventory'
       ? ['کد کالا','نام کالا','واحد','موجودی در هزارم واحد','آخرین قیمت خرید ریال','ارزش موجودی ریال']
       : ['شماره سند','تاریخ','طرف معامله','وضعیت','جمع کل ریال']);
-    const csv = '\\uFEFF' + [headers, ...rows.map(row => headers.map(header => row[header]))].map(row => row.map(csvCell).join(',')).join('\\r\\n');
+    const csv = '\uFEFF' + [headers, ...rows.map(row => headers.map(header => row[header]))].map(row => row.map(csvCell).join(',')).join('\r\n');
     const choice = await dialog.showSaveDialog(mainWindow, { title: 'ذخیره گزارش CSV', defaultPath: 'Market-' + type + '-' + new Date().toISOString().slice(0,10) + '.csv', filters: [{ name: 'CSV', extensions: ['csv'] }] });
     if (choice.canceled || !choice.filePath) return { canceled: true };
     fs.writeFileSync(choice.filePath, csv, 'utf8');
