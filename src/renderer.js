@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { page: 'dashboard', theme: 'system', moneyDisplay: 'irr', products: [], categories: [] };
+const state = { page: 'dashboard', theme: 'system', moneyDisplay: 'irr', taxRateBp: 0, products: [], categories: [] };
 const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'اسناد فروش', inventory: 'وضعیت موجودی', returns: 'برگشت‌ها', reports: 'گزارش‌ها', backup: 'پشتیبان‌گیری', settings: 'تنظیمات' };
 const digitsFa = (value) => String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
 const formatMoney = (value) => {
@@ -209,7 +209,7 @@ function collectDocumentPayload() {
     productId: row.querySelector('.item-product').value,
     quantityMilli: Math.round(Number(row.querySelector('.item-quantity').value) * 1000),
     unitPriceIrr: row.querySelector('.item-price').value,
-    discountType: 'none', discountValue: 0, taxRateBp: 0
+    discountType: 'none', discountValue: 0, taxRateBp: state.taxRateBp
   }));
   return { id: $('document-id').value || null, type: $('document-type').value, documentDate: $('document-date').value,
     partyName: $('document-party').value, notes: $('document-notes').value, items };
@@ -343,6 +343,13 @@ $('return-date').addEventListener('change', () => { $('return-jalali-preview').t
 $('return-form').addEventListener('submit', submitReturn);
 $('close-return-dialog').addEventListener('click', () => $('return-dialog').close());
 $('cancel-return').addEventListener('click', () => $('return-dialog').close());
+$('save-tax-rate').addEventListener('click', async () => {
+  const raw = $('tax-rate').value.trim();
+  if (!/^(?:\\d{1,3})(?:\\.\\d{1,2})?$/.test(raw) || Number(raw) < 0 || Number(raw) > 100) { toast('نرخ باید بین صفر تا ۱۰۰ و حداکثر با دو رقم اعشار باشد.', true); return; }
+  const basisPoints = Math.round(Number(raw) * 100);
+  try { await window.marketApp.setSetting('tax_rate_bp', String(basisPoints)); state.taxRateBp = basisPoints; toast('نرخ مالیات برای اسناد جدید ذخیره شد.'); }
+  catch(e) { toast(e.message || 'ذخیرهٔ نرخ ناموفق بود.', true); }
+});
 $('create-backup').addEventListener('click', async () => {
   const button = $('create-backup'); button.disabled = true;
   try { const result = await window.marketApp.createBackup(); if (!result.canceled) toast('پشتیبان معتبر ذخیره شد: ' + result.filePath); }
@@ -361,6 +368,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     const settings = await window.marketApp.getSettings();
     applyTheme(settings.theme || 'system'); applyMoneyDisplay(settings.money_display || 'irr');
+    state.taxRateBp = Number(settings.tax_rate_bp || 0); $('tax-rate').value = (state.taxRateBp / 100).toFixed(2);
     await renderDashboard();
   } catch (error) { $('database-status').textContent = 'خطا'; toast('راه‌اندازی رابط ناموفق بود: ' + (error.message || ''), true); }
 });
