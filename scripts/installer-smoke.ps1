@@ -9,7 +9,8 @@ $appDataDir = Join-Path $root 'appdata'
 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $installDir, $appDataDir -Force | Out-Null
 
-# Isolate app data so this test cannot touch a real user profile.
+# Isolate app data so this test cannot touch a real user profile. Pass Electron's
+# user-data-dir explicitly as well, rather than relying on inherited APPDATA.
 $env:APPDATA = $appDataDir
 $install = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDir") -Wait -PassThru
 if ($install.ExitCode -ne 0) { throw "NSIS installer exited with code $($install.ExitCode)" }
@@ -18,7 +19,7 @@ $executable = Join-Path $installDir 'Market.exe'
 if (-not (Test-Path -LiteralPath $executable)) { throw "Installed application executable was not found: $executable" }
 
 function Invoke-PackagedSmokeTest {
-  $process = Start-Process -FilePath $executable -ArgumentList '--smoke-test' -PassThru
+  $process = Start-Process -FilePath $executable -ArgumentList @('--smoke-test', "--user-data-dir=$appDataDir") -PassThru
   if (-not $process.WaitForExit(60000)) {
     Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
     throw 'Packaged application smoke test timed out after 60 seconds'
@@ -28,7 +29,7 @@ function Invoke-PackagedSmokeTest {
 
 Invoke-PackagedSmokeTest
 $database = Get-ChildItem -Path $appDataDir -Filter 'market.sqlite' -File -Recurse | Select-Object -First 1
-if (-not $database) { throw 'Packaged application did not create market.sqlite in the isolated user-data directory' }
+if (-not $database) { throw "Packaged application did not create market.sqlite under explicit user-data directory: $appDataDir" }
 
 # Seed a harmless marker, restart the packaged app, and verify the marker survived.
 & python -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute("INSERT OR REPLACE INTO app_meta (meta_key, meta_value) VALUES (''installer_smoke_sentinel'', ''preserve-me'')"); c.commit(); c.close()' $database.FullName
