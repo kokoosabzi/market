@@ -221,7 +221,8 @@ async function submitDocument(finalize) {
     const saved = await window.marketApp.saveDocumentDraft(collectDocumentPayload());
     if (finalize) {
       const result = await window.marketApp.finalizeDocument(saved.id);
-      toast('سند ' + result.documentNumber + ' با موفقیت قطعی شد.');
+      if (result.warnings?.length) toast('هشدار موجودی منفی: ' + result.warnings.map(w => w.productName).join('، ') + ' — سند ثبت شد و بهای تمام‌شدهٔ این اقلام تخمینی/نامشخص است.', true);
+      else toast('سند ' + result.documentNumber + ' با موفقیت قطعی شد.');
     } else toast('پیش‌نویس سند ذخیره شد.');
     const type = $('document-type').value; $('document-dialog').close(); await renderDocuments(type); await renderInventory(); await renderDashboard();
   } catch (error) {
