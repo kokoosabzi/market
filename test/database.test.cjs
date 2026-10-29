@@ -12,9 +12,11 @@ function fixture() {
 
 test('opens a local database and applies initial migration', (t) => {
   const f = fixture();
-  t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
   const db = openDatabase(f.databasePath, f.migrationsDir);
-  t.after(() => { if (db.open) db.close(); });
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
   assert.equal(db.pragma('foreign_keys', { simple: true }), 1);
   assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 1);
   assert.equal(db.prepare("SELECT meta_value FROM app_meta WHERE meta_key = 'application_id'").get().meta_value, 'market-desktop');
