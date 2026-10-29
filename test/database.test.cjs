@@ -75,7 +75,6 @@ test('a failed migration rolls back and is not recorded', (t) => {
   fs.mkdirSync(path.dirname(f.databasePath), { recursive: true });
   fs.writeFileSync(path.join(migrationsDir, '001_broken.sql'), 'CREATE TABLE should_rollback (id INTEGER PRIMARY KEY); SELECT * FROM missing_table;');
   const Database = require('better-sqlite3');
-  fs.mkdirSync(path.dirname(f.databasePath), { recursive: true });
   const db = new Database(f.databasePath);
   t.after(() => {
     if (db.open) db.close();
