@@ -83,7 +83,6 @@ function registerIpcHandlers() {
     const unit = requireText(payload.unit || 'عدد', 'واحد کالا', 20);
     if (!['عدد', 'کیلوگرم', 'گرم', 'متر', 'لیتر', 'بسته', 'سرویس'].includes(unit)) throw new Error('واحد کالا معتبر نیست.');
     const categoryId = payload.categoryId === '' || payload.categoryId === null || payload.categoryId === undefined ? null : requireId(payload.categoryId);
-    const purchasePrice = requireMoney(payload.purchasePriceIrr, 'قیمت خرید', true);
     const salePrice = requireMoney(payload.salePriceIrr ?? 0, 'قیمت فروش');
     const minStock = Number(payload.minStockMilli ?? 0);
     if (!Number.isSafeInteger(minStock) || minStock < 0) throw new Error('حداقل موجودی معتبر نیست.');
@@ -91,13 +90,13 @@ function registerIpcHandlers() {
     const id = payload.id ? requireId(payload.id) : null;
     if (categoryId && !database.prepare('SELECT 1 FROM categories WHERE id = ? AND is_active = 1').get(categoryId)) throw new Error('دسته‌بندی انتخاب‌شده فعال نیست.');
     if (id) {
-      database.prepare(`UPDATE products SET code=?, name=?, category_id=?, unit=?, purchase_price_irr=?, sale_price_irr=?,
+      database.prepare(`UPDATE products SET code=?, name=?, category_id=?, unit=?, sale_price_irr=?,
         min_stock_milli=?, description=?, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=?`)
-        .run(code, name, categoryId, unit, purchasePrice, salePrice, minStock, description, id);
+        .run(code, name, categoryId, unit, salePrice, minStock, description, id);
       return database.prepare('SELECT id, code, name FROM products WHERE id = ?').get(id);
     }
-    const result = database.prepare(`INSERT INTO products (code,name,category_id,unit,purchase_price_irr,sale_price_irr,min_stock_milli,description)
-      VALUES (?,?,?,?,?,?,?,?)`).run(code, name, categoryId, unit, purchasePrice, salePrice, minStock, description);
+    const result = database.prepare(`INSERT INTO products (code,name,category_id,unit,sale_price_irr,min_stock_milli,description)
+      VALUES (?,?,?,?,?,?,?)`).run(code, name, categoryId, unit, salePrice, minStock, description);
     return database.prepare('SELECT id, code, name FROM products WHERE id = ?').get(result.lastInsertRowid);
   });
   ipcMain.handle('catalog:set-product-active', (_event, payload = {}) => {
