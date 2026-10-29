@@ -19,6 +19,30 @@ function registerIpcHandlers() {
   }));
 }
 
+function runSmokeCheck() {
+  if (!process.argv.includes('--smoke-test')) return;
+
+  mainWindow.webContents.once('did-finish-load', async () => {
+    try {
+      const result = await mainWindow.webContents.executeJavaScript(
+        'window.marketApp.getDatabaseStatus()'
+      );
+      if (!result?.connected || result.schemaVersion < 1) {
+        throw new Error('Renderer IPC or SQLite migration check failed');
+      }
+      console.log(`ELECTRON_SMOKE_OK schema=${result.schemaVersion}`);
+      if (database?.open) database.close();
+      database = null;
+      app.exit(0);
+    } catch (error) {
+      console.error('ELECTRON_SMOKE_FAILED:', error);
+      if (database?.open) database.close();
+      database = null;
+      app.exit(1);
+    }
+  });
+}
+
 function createWindow() {
   const entryPath = path.resolve(__dirname, '../src/index.html');
   const allowedUrl = pathToFileURL(entryPath).href;
@@ -34,6 +58,7 @@ function createWindow() {
   mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
     if (targetUrl !== allowedUrl) event.preventDefault();
   });
+  runSmokeCheck();
   mainWindow.loadFile(entryPath);
   mainWindow.on('closed', () => { mainWindow = null; });
 }
@@ -46,7 +71,7 @@ app.whenReady().then(() => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 }).catch((error) => {
   console.error('Market startup failed:', error);
-  app.quit();
+  app.exit(1);
 });
 
 app.on('before-quit', () => { if (database && database.open) database.close(); });
