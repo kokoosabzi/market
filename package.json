@@ -10,7 +10,7 @@
     "test": "node --test",
     "smoke:electron": "node scripts/electron-smoke.cjs",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
-    "dist:win": "electron-builder --win nsis"
+    "dist:win": "electron-builder --win nsis --publish never"
   },
   "engines": {
     "node": ">=22 <25"
