@@ -14,3 +14,5 @@ Thumbs.db
 *.db
 *.db-shm
 *.db-wal
+
+npm-audit.json
