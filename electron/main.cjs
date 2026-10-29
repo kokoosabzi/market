@@ -274,7 +274,7 @@ function registerIpcHandlers() {
   });
   ipcMain.handle('returns:list', () => database.prepare(`SELECT r.id, r.return_number AS returnNumber, r.return_type AS type,
     r.source_document_id AS sourceDocumentId, d.document_number AS sourceDocumentNumber, r.return_date AS returnDate,
-    r.status, r.reason, (SELECT COUNT(*) FROM return_items ri WHERE ri.return_id=r.id) AS itemCount
+    r.status, r.reason, r.void_reason AS voidReason, (SELECT COUNT(*) FROM return_items ri WHERE ri.return_id=r.id) AS itemCount
     FROM returns r JOIN documents d ON d.id=r.source_document_id ORDER BY r.id DESC LIMIT 200`).all());
   ipcMain.handle('returns:create-draft', (_event, payload = {}) => {
     const sourceId = requireId(payload.sourceDocumentId);
@@ -437,6 +437,23 @@ function registerIpcHandlers() {
       if (fs.existsSync(stagedPath)) fs.unlinkSync(stagedPath);
     }
     return { canceled: false, safetyPath, schemaVersion: database.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v };
+  });
+
+  ipcMain.handle('returns:void', (_event, payload = {}) => {
+    const id = requireId(payload.id);
+    const reason = requireText(payload.reason, 'علت ابطال برگشت', 500);
+    return database.transaction(() => {
+      const ret = database.prepare('SELECT * FROM returns WHERE id=?').get(id);
+      if (!ret || ret.status !== 'finalized') throw new Error('فقط برگشت قطعی قابل ابطال است.');
+      const items = database.prepare('SELECT * FROM return_items WHERE return_id=?').all(id);
+      const reverse = database.prepare("INSERT INTO return_movements(return_id,return_item_id,product_id,quantity_delta_milli,event_type) VALUES(?,?,?,?,'void')");
+      for (const item of items) {
+        const movement = database.prepare("SELECT quantity_delta_milli FROM return_movements WHERE return_item_id=? AND event_type='return'").get(item.id);
+        if (movement) reverse.run(id, item.id, item.product_id, -movement.quantity_delta_milli);
+      }
+      database.prepare("UPDATE returns SET status='voided', void_reason=? WHERE id=?").run(reason, id);
+      return { id, returnNumber: ret.return_number, status: 'voided' };
+    })();
   });
   ipcMain.handle('inventory:list', () => database.prepare(`SELECT p.id, p.code, p.name, p.unit,
     COALESCE(m.quantityMilli,0) AS quantityMilli,
