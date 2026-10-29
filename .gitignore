@@ -1,0 +1,16 @@
+node_modules/
+release/
+dist/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+# Local runtime data must never be committed
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
