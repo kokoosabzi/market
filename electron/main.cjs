@@ -201,6 +201,7 @@ function registerIpcHandlers() {
       database.prepare('UPDATE documents SET document_number=? WHERE id=?').run(number, id);
       const addMovement = database.prepare('INSERT INTO inventory_movements(product_id,document_id,document_item_id,quantity_delta_milli,event_type) VALUES(?,?,?,?,?)');
       const updateCost = database.prepare('UPDATE document_items SET unit_cost_snapshot_irr=?, cost_status=? WHERE id=?');
+      const warnings = [];
       for (const item of items) {
         if (doc.document_type === 'purchase') {
           addMovement.run(item.product_id, id, item.id, item.quantity_milli, 'purchase');
@@ -212,13 +213,14 @@ function registerIpcHandlers() {
             WHERE d.document_type='purchase' AND d.status='finalized' AND i.product_id=?
             ORDER BY d.finalized_at DESC, d.id DESC, i.id DESC LIMIT 1`).get(item.product_id);
           const cost = latestCost ? latestCost.price : null;
+          if (currentStock < item.quantity_milli) warnings.push({ productId: item.product_id, productName: database.prepare('SELECT name FROM products WHERE id=?').get(item.product_id).name, stockBeforeMilli: currentStock, soldMilli: item.quantity_milli });
           const costStatus = cost === null ? 'unknown' : currentStock < item.quantity_milli ? 'estimated' : 'known';
           updateCost.run(cost, costStatus, item.id);
           addMovement.run(item.product_id, id, item.id, -item.quantity_milli, 'sale');
         }
       }
       database.prepare("UPDATE documents SET status='finalized', finalized_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=?").run(id);
-      return { id, documentNumber: number, status: 'finalized' };
+      return { id, documentNumber: number, status: 'finalized', warnings };
     })();
   });
   ipcMain.handle('documents:void', (_event, payload = {}) => {
