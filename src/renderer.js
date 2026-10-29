@@ -345,7 +345,7 @@ $('close-return-dialog').addEventListener('click', () => $('return-dialog').clos
 $('cancel-return').addEventListener('click', () => $('return-dialog').close());
 $('save-tax-rate').addEventListener('click', async () => {
   const raw = $('tax-rate').value.trim();
-  if (!/^(?:\\d{1,3})(?:\\.\\d{1,2})?$/.test(raw) || Number(raw) < 0 || Number(raw) > 100) { toast('نرخ باید بین صفر تا ۱۰۰ و حداکثر با دو رقم اعشار باشد.', true); return; }
+  if (!/^(?:\d{1,3})(?:\.\d{1,2})?$/.test(raw) || Number(raw) < 0 || Number(raw) > 100) { toast('نرخ باید بین صفر تا ۱۰۰ و حداکثر با دو رقم اعشار باشد.', true); return; }
   const basisPoints = Math.round(Number(raw) * 100);
   try { await window.marketApp.setSetting('tax_rate_bp', String(basisPoints)); state.taxRateBp = basisPoints; toast('نرخ مالیات برای اسناد جدید ذخیره شد.'); }
   catch(e) { toast(e.message || 'ذخیرهٔ نرخ ناموفق بود.', true); }
