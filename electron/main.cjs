@@ -4,7 +4,7 @@ const Database = require('better-sqlite3');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { openDatabase } = require('./database.cjs');
-const { roundRatio, calculateLine } = require('./domain.cjs');
+const { roundRatio, calculateLine, calculateProfit } = require('./domain.cjs');
 
 if (process.env.MARKET_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.MARKET_USER_DATA_DIR));
 
@@ -343,6 +343,38 @@ function registerIpcHandlers() {
   });
 
   function reportRows(type, from = '', to = '') {
+    for (const [label, value] of [['شروع', from], ['پایان', to]]) {
+      if (value && (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value) ||
+          Number.isNaN(Date.parse(value + 'T00:00:00Z')) ||
+          new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) !== value)) {
+        throw new Error('تاریخ ' + label + ' گزارش معتبر نیست.');
+      }
+    }
+    if (from && to && from > to) throw new Error('تاریخ شروع گزارش نباید بعد از تاریخ پایان باشد.');
+    if (type === 'profit') {
+      const documents = database.prepare(`SELECT d.id, d.document_number AS documentNumber, d.document_date AS documentDate
+        FROM documents d WHERE d.document_type='sale' AND d.status='finalized'
+        AND (?='' OR d.document_date>=?) AND (?='' OR d.document_date<=?)
+        ORDER BY d.id DESC`).all(from, from, to, to);
+      return documents.map(doc => {
+        const items = database.prepare(`SELECT i.quantity_milli AS quantityMilli, i.gross_irr AS grossIrr,
+          i.discount_irr AS discountIrr, i.unit_cost_snapshot_irr AS unitCostSnapshotIrr,
+          i.cost_status AS costStatus,
+          COALESCE((SELECT SUM(ri.quantity_milli) FROM return_items ri
+            JOIN returns r ON r.id=ri.return_id
+            WHERE ri.source_document_item_id=i.id AND r.status='finalized' AND r.return_type='sale'), 0) AS returnedQuantityMilli
+          FROM document_items i WHERE i.document_id=? ORDER BY i.id`).all(doc.id);
+        const profit = calculateProfit(items);
+        return {
+          'شماره سند': doc.documentNumber,
+          'تاریخ': doc.documentDate,
+          'فروش خالص بدون مالیات ریال': profit.revenueIrr,
+          'بهای تمام‌شده ریال': profit.costIrr,
+          'سود ناخالص ریال': profit.profitIrr,
+          'وضعیت بهای تمام‌شده': profit.costStatus === 'known' ? 'معتبر' : profit.costStatus === 'estimated' ? 'تخمینی' : 'نامشخص'
+        };
+      });
+    }
     if (type === 'inventory') return database.prepare(`SELECT p.code AS 'کد کالا', p.name AS 'نام کالا', p.unit AS 'واحد',
       COALESCE(m.quantityMilli,0) AS 'موجودی در هزارم واحد', p.purchase_price_irr AS 'آخرین قیمت خرید ریال',
       CASE WHEN p.purchase_price_irr IS NULL THEN NULL ELSE p.purchase_price_irr * COALESCE(m.quantityMilli,0) / 1000 END AS 'ارزش موجودی ریال'
@@ -372,7 +404,11 @@ function registerIpcHandlers() {
     const rows = reportRows(type, typeof payload.from === 'string' ? payload.from : '', typeof payload.to === 'string' ? payload.to : '');
     const headers = rows.length ? Object.keys(rows[0]) : (type === 'inventory'
       ? ['کد کالا','نام کالا','واحد','موجودی در هزارم واحد','آخرین قیمت خرید ریال','ارزش موجودی ریال']
-      : ['شماره سند','تاریخ','طرف معامله','وضعیت','جمع کل ریال']);
+      : type === 'returns'
+        ? ['شماره برگشت','نوع','سند اصلی','تاریخ','وضعیت','علت','مبلغ ریال']
+        : type === 'profit'
+          ? ['شماره سند','تاریخ','فروش خالص بدون مالیات ریال','بهای تمام‌شده ریال','سود ناخالص ریال','وضعیت بهای تمام‌شده']
+          : ['شماره سند','تاریخ','طرف معامله','وضعیت','جمع ناخالص ریال','تخفیف ریال','مالیات ریال','جمع کل ریال']);
     const csv = '\uFEFF' + [headers, ...rows.map(row => headers.map(header => row[header]))].map(row => row.map(csvCell).join(',')).join('\r\n');
     const choice = await dialog.showSaveDialog(mainWindow, { title: 'ذخیره گزارش CSV', defaultPath: 'Market-' + type + '-' + new Date().toISOString().slice(0,10) + '.csv', filters: [{ name: 'CSV', extensions: ['csv'] }] });
     if (choice.canceled || !choice.filePath) return { canceled: true };
@@ -381,8 +417,14 @@ function registerIpcHandlers() {
   });
   ipcMain.handle('reports:export-pdf', async (_event, payload = {}) => {
     const type = payload.type;
-    const rows = reportRows(type);
-    const headers = rows.length ? Object.keys(rows[0]) : ['گزارش', 'تعداد'];
+    const rows = reportRows(type, typeof payload.from === 'string' ? payload.from : '', typeof payload.to === 'string' ? payload.to : '');
+    const headers = rows.length ? Object.keys(rows[0]) : (type === 'profit'
+      ? ['شماره سند','تاریخ','فروش خالص بدون مالیات ریال','بهای تمام‌شده ریال','سود ناخالص ریال','وضعیت بهای تمام‌شده']
+      : type === 'returns'
+        ? ['شماره برگشت','نوع','سند اصلی','تاریخ','وضعیت','علت','مبلغ ریال']
+        : type === 'inventory'
+          ? ['کد کالا','نام کالا','واحد','موجودی در هزارم واحد','آخرین قیمت خرید ریال','ارزش موجودی ریال']
+          : ['شماره سند','تاریخ','طرف معامله','وضعیت','جمع ناخالص ریال','تخفیف ریال','مالیات ریال','جمع کل ریال']);
     const body = rows.map(row => '<tr>' + headers.map(h => '<td>' + String(row[h] ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])) + '</td>').join('') + '</tr>').join('');
     const head = headers.map(h => '<th>' + String(h).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])) + '</th>').join('');
     const html = '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><style>body{font-family:Tahoma,sans-serif;padding:24px;color:#172033}h1{font-size:20px}p{color:#667085}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #d8deea;padding:7px;text-align:right}th{background:#eef1fa}tr{break-inside:avoid}</style><h1>گزارش Market</h1><p>نوع گزارش: ' + type + ' · تاریخ تهیه: ' + new Date().toLocaleDateString('fa-IR') + '</p><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></html>';
