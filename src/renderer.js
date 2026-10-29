@@ -77,7 +77,7 @@ function openProduct(product = null) {
   $('product-id').value = product?.id || ''; $('product-code').value = product?.code || '';
   $('product-name').value = product?.name || ''; $('product-unit').value = product?.unit || 'عدد';
   $('product-purchase-price').value = product?.purchasePriceIrr ?? ''; $('product-sale-price').value = product?.salePriceIrr ?? 0;
-  $('product-min-stock').value = product?.minStockMilli ?? 0; $('product-description').value = product?.description || '';
+  $('product-min-stock').value = product ? Number(product.minStockMilli || 0) / 1000 : 0; $('product-description').value = product?.description || '';
   $('product-dialog-title').textContent = product ? 'ویرایش مشخصات کالا' : 'ثبت کالای جدید';
   fillCategorySelect(product?.categoryId || '').then(() => $('product-dialog').showModal()).catch(e => toast(e.message, true));
 }
