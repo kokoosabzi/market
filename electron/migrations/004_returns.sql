@@ -6,6 +6,7 @@ CREATE TABLE returns (
   return_date TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'finalized', 'voided')),
   reason TEXT NOT NULL,
+  void_reason TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   finalized_at TEXT
 );
@@ -25,7 +26,8 @@ CREATE TABLE return_movements (
   return_item_id INTEGER NOT NULL REFERENCES return_items(id) ON DELETE RESTRICT,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   quantity_delta_milli INTEGER NOT NULL CHECK (quantity_delta_milli <> 0),
+  event_type TEXT NOT NULL DEFAULT 'return' CHECK (event_type IN ('return', 'void')),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  UNIQUE(return_item_id)
+  UNIQUE(return_item_id, event_type)
 );
 CREATE INDEX return_movements_product_idx ON return_movements(product_id, id);
