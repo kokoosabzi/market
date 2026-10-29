@@ -39,4 +39,13 @@ Invoke-PackagedSmokeTest
 & python -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); r=c.execute("SELECT meta_value FROM app_meta WHERE meta_key=?", ("installer_smoke_sentinel",)).fetchone(); c.close(); assert r and r[0]=="preserve-me", "SQLite persistence sentinel was lost"' $database.FullName
 if ($LASTEXITCODE -ne 0) { throw 'SQLite data did not survive the packaged app restart' }
 
-Write-Host "INSTALLER_SMOKE_OK installer=$($installer.Name) database=$($database.FullName)"
+# Reinstall the same build over the existing application directory. This checks that
+# an in-place installer run does not delete the user's separate app-data database.
+$upgrade = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDir") -Wait -PassThru
+if ($upgrade.ExitCode -ne 0) { throw "In-place reinstall exited with code $($upgrade.ExitCode)" }
+
+Invoke-PackagedSmokeTest
+& python -c 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); r=c.execute("SELECT meta_value FROM app_meta WHERE meta_key=?", ("installer_smoke_sentinel",)).fetchone(); c.close(); assert r and r[0]=="preserve-me", "SQLite persistence sentinel was lost after in-place reinstall"' $database.FullName
+if ($LASTEXITCODE -ne 0) { throw 'SQLite data did not survive in-place reinstall' }
+
+Write-Host "INSTALLER_SMOKE_OK installer=$($installer.Name) database=$($database.FullName) in_place_reinstall=passed"
