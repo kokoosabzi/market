@@ -5,7 +5,12 @@ const Database = require('better-sqlite3');
 const MIGRATION_NAME = /^([0-9]{3,})_[a-z0-9_-]+\.sql$/i;
 
 function listMigrations(migrationsDir) {
-  return fs.readdirSync(migrationsDir)
+  const files = fs.readdirSync(migrationsDir);
+  const invalidSqlFiles = files.filter((name) => name.toLowerCase().endsWith('.sql') && !MIGRATION_NAME.test(name));
+  if (invalidSqlFiles.length) {
+    throw new Error('Invalid migration filename(s): ' + invalidSqlFiles.join(', '));
+  }
+  return files
     .filter((name) => MIGRATION_NAME.test(name))
     .map((name) => ({
       name,
