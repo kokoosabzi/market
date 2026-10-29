@@ -3,6 +3,12 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { openDatabase } = require('./database.cjs');
 
+// CI can isolate packaged-app persistence tests from the runner's real profile.
+// This must run before app.whenReady() and before any app.getPath('userData') use.
+if (process.env.MARKET_USER_DATA_DIR) {
+  app.setPath('userData', path.resolve(process.env.MARKET_USER_DATA_DIR));
+}
+
 let mainWindow;
 let database;
 
