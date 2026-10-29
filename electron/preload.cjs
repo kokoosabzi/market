@@ -20,8 +20,8 @@ contextBridge.exposeInMainWorld('marketApp', Object.freeze({
   listReturnableItems: (sourceDocumentId) => ipcRenderer.invoke('returns:list-eligible-items', { sourceDocumentId }),
   createReturnDraft: (payload) => ipcRenderer.invoke('returns:create-draft', payload),
   finalizeReturn: (id) => ipcRenderer.invoke('returns:finalize', { id }),
-  exportCsv: (type) => ipcRenderer.invoke('reports:export-csv', { type }),
-  exportPdf: (type) => ipcRenderer.invoke('reports:export-pdf', { type }),
+  exportCsv: (type, filters = {}) => ipcRenderer.invoke('reports:export-csv', { type, ...filters }),
+  exportPdf: (type, filters = {}) => ipcRenderer.invoke('reports:export-pdf', { type, ...filters }),
   createBackup: () => ipcRenderer.invoke('backup:create'),
   restoreBackup: () => ipcRenderer.invoke('backup:restore')
 }));
