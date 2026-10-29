@@ -85,7 +85,6 @@ test('a failed migration rolls back and is not recorded', (t) => {
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 0);
 });
 
-
 test('rejects malformed SQL migration filenames instead of silently ignoring them', (t) => {
   const f = fixture();
   const migrationsDir = path.join(f.directory, 'migrations');
@@ -94,4 +93,38 @@ test('rejects malformed SQL migration filenames instead of silently ignoring the
   t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
 
   assert.throws(() => listMigrations(migrationsDir), /Invalid migration filename.*002 missing-name\.sql/);
+});
+
+test('rejects a missing earlier migration record when a later migration is recorded', (t) => {
+  const f = fixture();
+  const migrationsDir = path.join(f.directory, 'migrations');
+  fs.mkdirSync(migrationsDir, { recursive: true });
+  fs.writeFileSync(path.join(migrationsDir, '001_first.sql'), 'CREATE TABLE first_table (id INTEGER PRIMARY KEY);');
+  fs.writeFileSync(path.join(migrationsDir, '002_second.sql'), 'CREATE TABLE second_table (id INTEGER PRIMARY KEY);');
+  const Database = require('better-sqlite3');
+  const db = new Database(f.databasePath);
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
+
+  runMigrations(db, migrationsDir);
+  db.prepare('DELETE FROM schema_migrations WHERE version = 1').run();
+  assert.throws(() => runMigrations(db, migrationsDir), /Incomplete migration history/);
+  assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'first_table'").get().name, 'first_table');
+});
+
+test('rejects an empty migration history when application tables already exist', (t) => {
+  const f = fixture();
+  const db = openDatabase(f.databasePath, f.migrationsDir);
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
+
+  db.prepare('DELETE FROM schema_migrations').run();
+  assert.throws(
+    () => runMigrations(db, f.migrationsDir),
+    /application tables exist but no migrations are recorded/
+  );
 });
