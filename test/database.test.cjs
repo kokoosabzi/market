@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { openDatabase, runMigrations } = require('../electron/database.cjs');
+const { openDatabase, runMigrations, listMigrations } = require('../electron/database.cjs');
 
 function fixture() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'market-db-test-'));
@@ -83,4 +83,15 @@ test('a failed migration rolls back and is not recorded', (t) => {
   assert.throws(() => runMigrations(db, migrationsDir));
   assert.equal(db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'should_rollback'").get(), undefined);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 0);
+});
+
+
+test('rejects malformed SQL migration filenames instead of silently ignoring them', (t) => {
+  const f = fixture();
+  const migrationsDir = path.join(f.directory, 'migrations');
+  fs.mkdirSync(migrationsDir, { recursive: true });
+  fs.writeFileSync(path.join(migrationsDir, '002 missing-name.sql'), 'SELECT 1;');
+  t.after(() => fs.rmSync(f.directory, { recursive: true, force: true }));
+
+  assert.throws(() => listMigrations(migrationsDir), /Invalid migration filename.*002 missing-name\.sql/);
 });
