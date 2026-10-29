@@ -41,9 +41,10 @@ function registerIpcHandlers() {
   ipcMain.handle('market:set-setting', (_event, payload = {}) => {
     const key = requireText(payload.key, 'کلید تنظیمات', 80);
     const value = requireText(payload.value, 'مقدار تنظیمات', 80);
-    if (!['theme', 'money_display'].includes(key)) throw new Error('این تنظیم قابل تغییر نیست.');
+    if (!['theme', 'money_display', 'tax_rate_bp'].includes(key)) throw new Error('این تنظیم قابل تغییر نیست.');
     if (key === 'theme' && !['light', 'dark', 'system'].includes(value)) throw new Error('پوسته انتخاب‌شده معتبر نیست.');
     if (key === 'money_display' && !['irr', 'irt'].includes(value)) throw new Error('واحد نمایش معتبر نیست.');
+    if (key === 'tax_rate_bp' && (!/^\d+$/.test(value) || Number(value) < 0 || Number(value) > 10000)) throw new Error('نرخ مالیات باید بین صفر تا ۱۰۰ درصد باشد.');
     database.prepare(`INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)
       ON CONFLICT(setting_key) DO UPDATE SET setting_value=excluded.setting_value, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`).run(key, value);
     return { key, value };
@@ -118,7 +119,8 @@ function registerIpcHandlers() {
       const unitPrice = requireMoney(item.unitPriceIrr, 'قیمت واحد ردیف ' + (index + 1));
       const discountType = item.discountType || 'none';
       const discountValue = Number(item.discountValue || 0);
-      const taxRate = Number(item.taxRateBp || 0);
+      const configuredTax = Number(database.prepare("SELECT setting_value FROM app_settings WHERE setting_key='tax_rate_bp'").get()?.setting_value || '0');
+      const taxRate = item.taxRateBp === undefined ? configuredTax : Number(item.taxRateBp || 0);
       let amounts;
       try { amounts = calculateLine({ quantityMilli, unitPriceIrr: unitPrice, discountType, discountValue, taxRateBp: taxRate }); }
       catch (error) { throw new Error('اطلاعات مبلغ ردیف ' + (index + 1) + ' معتبر نیست: ' + error.message); }
