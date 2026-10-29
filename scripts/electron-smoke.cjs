@@ -5,7 +5,7 @@ const electronBinary = require('electron');
 const isLinux = process.platform === 'linux';
 const command = isLinux ? 'xvfb-run' : electronBinary;
 const args = isLinux
-  ? ['-a', electronBinary, '.', '--smoke-test']
+  ? ['-a', electronBinary, '--no-sandbox', '.', '--smoke-test']
   : ['.', '--smoke-test'];
 
 const child = spawn(command, args, {
