@@ -16,7 +16,7 @@
     "node": ">=22 <25"
   },
   "dependencies": {
-    "better-sqlite3": "^12.4.1"
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.1",
