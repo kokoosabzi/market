@@ -59,6 +59,15 @@ jobs:
           path: release/*.exe
           if-no-files-found: error
           retention-days: 7
+      - name: Set up Python for installer persistence test
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install and smoke-test packaged Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/installer-smoke.ps1
 
   commit-lockfile:
     name: Commit generated lockfile
