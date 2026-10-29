@@ -7,12 +7,12 @@ const MIGRATION_NAME = /^([0-9]{3,})_[a-z0-9_-]+\.sql$/i;
 function listMigrations(migrationsDir) {
   return fs.readdirSync(migrationsDir)
     .filter((name) => MIGRATION_NAME.test(name))
-    .sort((a, b) => a.localeCompare(b, 'en'))
     .map((name) => ({
       name,
       version: Number(name.match(MIGRATION_NAME)[1]),
       sql: fs.readFileSync(path.join(migrationsDir, name), 'utf8')
-    }));
+    }))
+    .sort((a, b) => a.version - b.version);
 }
 
 function runMigrations(db, migrationsDir) {
