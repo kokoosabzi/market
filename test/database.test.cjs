@@ -56,6 +56,18 @@ test('a database transaction commits atomically and rolls back on error', (t) =>
   assert.equal(db.prepare("SELECT setting_key FROM app_settings WHERE setting_key = 'temporary'").get(), undefined);
 });
 
+test('rejects migration history drift instead of silently skipping it', (t) => {
+  const f = fixture();
+  const db = openDatabase(f.databasePath, f.migrationsDir);
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
+
+  db.prepare('UPDATE schema_migrations SET name = ? WHERE version = 1').run('001_different_schema');
+  assert.throws(() => runMigrations(db, f.migrationsDir), /Migration history mismatch at version 1/);
+});
+
 test('a failed migration rolls back and is not recorded', (t) => {
   const f = fixture();
   const migrationsDir = path.join(f.directory, 'migrations');
