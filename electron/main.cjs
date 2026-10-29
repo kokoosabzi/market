@@ -328,7 +328,7 @@ function registerIpcHandlers() {
     })();
   });
 
-  function reportRows(type) {
+  function reportRows(type, from = '', to = '') {
     if (type === 'inventory') return database.prepare(`SELECT p.code AS 'کد کالا', p.name AS 'نام کالا', p.unit AS 'واحد',
       COALESCE(m.quantityMilli,0) AS 'موجودی در هزارم واحد', p.purchase_price_irr AS 'آخرین قیمت خرید ریال',
       CASE WHEN p.purchase_price_irr IS NULL THEN NULL ELSE p.purchase_price_irr * COALESCE(m.quantityMilli,0) / 1000 END AS 'ارزش موجودی ریال'
@@ -340,11 +340,12 @@ function registerIpcHandlers() {
       ) m ON m.product_id=p.id ORDER BY p.name COLLATE NOCASE`).all();
     if (type === 'purchase' || type === 'sale') return database.prepare(`SELECT document_number AS 'شماره سند', document_date AS 'تاریخ', party_name AS 'طرف معامله',
       status AS 'وضعیت', subtotal_irr AS 'جمع ناخالص ریال', discount_irr AS 'تخفیف ریال', tax_irr AS 'مالیات ریال', total_irr AS 'جمع کل ریال'
-      FROM documents WHERE document_type=? ORDER BY id DESC`).all(type);
+      FROM documents WHERE document_type=? AND (?='' OR document_date>=?) AND (?='' OR document_date<=?) ORDER BY id DESC`).all(type, from, from, to, to);
     if (type === 'returns') return database.prepare(`SELECT r.return_number AS 'شماره برگشت', r.return_type AS 'نوع', d.document_number AS 'سند اصلی',
       r.return_date AS 'تاریخ', r.status AS 'وضعیت', r.reason AS 'علت',
       (SELECT COALESCE(SUM(amount_irr),0) FROM return_items WHERE return_id=r.id) AS 'مبلغ ریال'
-      FROM returns r JOIN documents d ON d.id=r.source_document_id ORDER BY r.id DESC`).all();
+      FROM returns r JOIN documents d ON d.id=r.source_document_id
+      WHERE (?='' OR r.return_date>=?) AND (?='' OR r.return_date<=?) ORDER BY r.id DESC`).all(from, from, to, to);
     throw new Error('نوع گزارش معتبر نیست.');
   }
   function csvCell(value) {
@@ -354,7 +355,7 @@ function registerIpcHandlers() {
   }
   ipcMain.handle('reports:export-csv', async (_event, payload = {}) => {
     const type = payload.type;
-    const rows = reportRows(type);
+    const rows = reportRows(type, typeof payload.from === 'string' ? payload.from : '', typeof payload.to === 'string' ? payload.to : '');
     const headers = rows.length ? Object.keys(rows[0]) : (type === 'inventory'
       ? ['کد کالا','نام کالا','واحد','موجودی در هزارم واحد','آخرین قیمت خرید ریال','ارزش موجودی ریال']
       : ['شماره سند','تاریخ','طرف معامله','وضعیت','جمع کل ریال']);
