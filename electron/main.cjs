@@ -1,4 +1,6 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const fs = require('node:fs');
+const Database = require('better-sqlite3');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { openDatabase } = require('./database.cjs');
@@ -319,6 +321,116 @@ function registerIpcHandlers() {
       database.prepare("UPDATE returns SET status='finalized', finalized_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=?").run(id);
       return { id, returnNumber: ret.return_number, status: 'finalized' };
     })();
+  });
+
+  function reportRows(type) {
+    if (type === 'inventory') return database.prepare(`SELECT p.code AS 'کد کالا', p.name AS 'نام کالا', p.unit AS 'واحد',
+      COALESCE(m.quantityMilli,0) AS 'موجودی در هزارم واحد', p.purchase_price_irr AS 'آخرین قیمت خرید ریال',
+      CASE WHEN p.purchase_price_irr IS NULL THEN NULL ELSE p.purchase_price_irr * COALESCE(m.quantityMilli,0) / 1000 END AS 'ارزش موجودی ریال'
+      FROM products p LEFT JOIN (
+        SELECT product_id, SUM(quantity_delta_milli) AS quantityMilli FROM (
+          SELECT product_id, quantity_delta_milli FROM inventory_movements
+          UNION ALL SELECT product_id, quantity_delta_milli FROM return_movements
+        ) GROUP BY product_id
+      ) m ON m.product_id=p.id ORDER BY p.name COLLATE NOCASE`).all();
+    if (type === 'purchase' || type === 'sale') return database.prepare(`SELECT document_number AS 'شماره سند', document_date AS 'تاریخ', party_name AS 'طرف معامله',
+      status AS 'وضعیت', subtotal_irr AS 'جمع ناخالص ریال', discount_irr AS 'تخفیف ریال', tax_irr AS 'مالیات ریال', total_irr AS 'جمع کل ریال'
+      FROM documents WHERE document_type=? ORDER BY id DESC`).all(type);
+    if (type === 'returns') return database.prepare(`SELECT r.return_number AS 'شماره برگشت', r.return_type AS 'نوع', d.document_number AS 'سند اصلی',
+      r.return_date AS 'تاریخ', r.status AS 'وضعیت', r.reason AS 'علت',
+      (SELECT COALESCE(SUM(amount_irr),0) FROM return_items WHERE return_id=r.id) AS 'مبلغ ریال'
+      FROM returns r JOIN documents d ON d.id=r.source_document_id ORDER BY r.id DESC`).all();
+    throw new Error('نوع گزارش معتبر نیست.');
+  }
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    const text = String(value);
+    return /[",\\r\\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+  }
+  ipcMain.handle('reports:export-csv', async (_event, payload = {}) => {
+    const type = payload.type;
+    const rows = reportRows(type);
+    const headers = rows.length ? Object.keys(rows[0]) : (type === 'inventory'
+      ? ['کد کالا','نام کالا','واحد','موجودی در هزارم واحد','آخرین قیمت خرید ریال','ارزش موجودی ریال']
+      : ['شماره سند','تاریخ','طرف معامله','وضعیت','جمع کل ریال']);
+    const csv = '\\uFEFF' + [headers, ...rows.map(row => headers.map(header => row[header]))].map(row => row.map(csvCell).join(',')).join('\\r\\n');
+    const choice = await dialog.showSaveDialog(mainWindow, { title: 'ذخیره گزارش CSV', defaultPath: 'Market-' + type + '-' + new Date().toISOString().slice(0,10) + '.csv', filters: [{ name: 'CSV', extensions: ['csv'] }] });
+    if (choice.canceled || !choice.filePath) return { canceled: true };
+    fs.writeFileSync(choice.filePath, csv, 'utf8');
+    return { canceled: false, filePath: choice.filePath, count: rows.length };
+  });
+  ipcMain.handle('reports:export-pdf', async (_event, payload = {}) => {
+    const type = payload.type;
+    const rows = reportRows(type);
+    const headers = rows.length ? Object.keys(rows[0]) : ['گزارش', 'تعداد'];
+    const body = rows.map(row => '<tr>' + headers.map(h => '<td>' + String(row[h] ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])) + '</td>').join('') + '</tr>').join('');
+    const head = headers.map(h => '<th>' + String(h).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])) + '</th>').join('');
+    const html = '<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><style>body{font-family:Tahoma,sans-serif;padding:24px;color:#172033}h1{font-size:20px}p{color:#667085}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #d8deea;padding:7px;text-align:right}th{background:#eef1fa}tr{break-inside:avoid}</style><h1>گزارش Market</h1><p>نوع گزارش: ' + type + ' · تاریخ تهیه: ' + new Date().toLocaleDateString('fa-IR') + '</p><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></html>';
+    const choice = await dialog.showSaveDialog(mainWindow, { title: 'ذخیره گزارش PDF', defaultPath: 'Market-' + type + '-' + new Date().toISOString().slice(0,10) + '.pdf', filters: [{ name: 'PDF', extensions: ['pdf'] }] });
+    if (choice.canceled || !choice.filePath) return { canceled: true };
+    const printWindow = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
+    try {
+      await printWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+      const pdf = await printWindow.webContents.printToPDF({ printBackground: true, pageSize: 'A4', landscape: type === 'inventory' });
+      fs.writeFileSync(choice.filePath, pdf);
+    } finally { printWindow.destroy(); }
+    return { canceled: false, filePath: choice.filePath, count: rows.length };
+  });
+  ipcMain.handle('backup:create', async () => {
+    const choice = await dialog.showSaveDialog(mainWindow, { title: 'ذخیرهٔ پشتیبان Market', defaultPath: 'Market-backup-' + new Date().toISOString().replace(/[:.]/g, '-') + '.sqlite', filters: [{ name: 'SQLite database', extensions: ['sqlite', 'db'] }] });
+    if (choice.canceled || !choice.filePath) return { canceled: true };
+    await database.backup(choice.filePath);
+    const verify = new Database(choice.filePath, { readonly: true, fileMustExist: true });
+    try {
+      const check = verify.pragma('quick_check');
+      if (!check.length || check[0].quick_check !== 'ok') throw new Error('اعتبارسنجی پشتیبان ناموفق بود.');
+      if (verify.prepare("SELECT meta_value FROM app_meta WHERE meta_key='application_id'").get()?.meta_value !== 'market-desktop') throw new Error('فایل پشتیبان متعلق به Market نیست.');
+    } finally { verify.close(); }
+    return { canceled: false, filePath: choice.filePath };
+  });
+  ipcMain.handle('backup:restore', async () => {
+    const choice = await dialog.showOpenDialog(mainWindow, { title: 'انتخاب فایل پشتیبان', properties: ['openFile'], filters: [{ name: 'SQLite database', extensions: ['sqlite', 'db'] }] });
+    if (choice.canceled || !choice.filePaths?.[0]) return { canceled: true };
+    const selected = path.resolve(choice.filePaths[0]);
+    const currentPath = path.join(app.getPath('userData'), 'data', 'market.sqlite');
+    if (selected === path.resolve(currentPath)) throw new Error('برای بازیابی، فایل پشتیبان جداگانه انتخاب کنید.');
+    const source = new Database(selected, { readonly: true, fileMustExist: true });
+    let sourceVersion;
+    try {
+      const check = source.pragma('quick_check');
+      if (!check.length || check[0].quick_check !== 'ok') throw new Error('فایل انتخاب‌شده سالم نیست.');
+      if (source.prepare("SELECT meta_value FROM app_meta WHERE meta_key='application_id'").get()?.meta_value !== 'market-desktop') throw new Error('فایل انتخاب‌شده پشتیبان معتبر Market نیست.');
+      sourceVersion = source.prepare('SELECT COALESCE(MAX(version),0) AS v FROM schema_migrations').get().v;
+      const localMax = require('./database.cjs').listMigrations(path.join(__dirname, 'migrations')).at(-1)?.version || 0;
+      if (sourceVersion > localMax) throw new Error('این پشتیبان از نسخهٔ برنامه جدیدتر است و قابل بازیابی نیست.');
+    } finally { source.close(); }
+    const dataDir = path.dirname(currentPath);
+    const backupDir = path.join(dataDir, 'backups');
+    fs.mkdirSync(backupDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safetyPath = path.join(backupDir, 'before-restore-' + stamp + '.sqlite');
+    await database.backup(safetyPath);
+    const stagedPath = currentPath + '.restore-staged';
+    const previousPath = currentPath + '.restore-previous';
+    fs.copyFileSync(selected, stagedPath);
+    database.close(); database = null;
+    try {
+      if (fs.existsSync(previousPath)) fs.unlinkSync(previousPath);
+      fs.renameSync(currentPath, previousPath);
+      fs.renameSync(stagedPath, currentPath);
+      database = openDatabase(currentPath, path.join(__dirname, 'migrations'));
+      if (fs.existsSync(previousPath)) fs.unlinkSync(previousPath);
+    } catch (error) {
+      if (database?.open) database.close();
+      database = null;
+      if (fs.existsSync(currentPath)) fs.unlinkSync(currentPath);
+      if (fs.existsSync(previousPath)) fs.renameSync(previousPath, currentPath);
+      database = openDatabase(currentPath, path.join(__dirname, 'migrations'));
+      throw error;
+    } finally {
+      if (fs.existsSync(stagedPath)) fs.unlinkSync(stagedPath);
+    }
+    return { canceled: false, safetyPath, schemaVersion: database.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v };
   });
   ipcMain.handle('inventory:list', () => database.prepare(`SELECT p.id, p.code, p.name, p.unit,
     COALESCE(m.quantityMilli,0) AS quantityMilli,
