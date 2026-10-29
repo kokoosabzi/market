@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const state = { page: 'dashboard', theme: 'system', moneyDisplay: 'irr', products: [], categories: [] };
-const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', settings: 'تنظیمات' };
+const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'اسناد فروش', inventory: 'وضعیت موجودی', settings: 'تنظیمات' };
 const digitsFa = (value) => String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
 const formatMoney = (value) => {
   if (value === null || value === undefined) return '—';
@@ -27,6 +27,8 @@ async function goTo(page) {
   $('page-title').textContent = pageTitles[page]; $('breadcrumb').textContent = 'فضای کاری / ' + pageTitles[page];
   if (page === 'products') await renderProducts();
   if (page === 'categories') await renderCategories();
+  if (page === 'purchase' || page === 'sale') await renderDocuments(page);
+  if (page === 'inventory') await renderInventory();
 }
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -72,6 +74,115 @@ async function fillCategorySelect(selected = '') {
   $('product-category').innerHTML = '<option value="">بدون دسته‌بندی</option>' + state.categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   $('product-category').value = String(selected || '');
 }
+
+function localIsoDate() {
+  const now = new Date();
+  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+}
+function jalaliPreview(iso) {
+  if (!iso) return 'تاریخ شمسی پس از انتخاب نمایش داده می‌شود';
+  const parts = iso.split('-').map(Number);
+  const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12));
+  return new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(date);
+}
+function quantityLabel(milli) {
+  const value = Number(milli || 0) / 1000;
+  return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 3 }).format(value);
+}
+async function renderDocuments(type) {
+  const rows = await window.marketApp.listDocuments(type);
+  const tbody = $(type + '-documents-table');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">هنوز سندی ثبت نشده است. برای شروع، سند جدید بسازید.</td></tr>'; return; }
+  tbody.innerHTML = rows.map(doc => {
+    const status = doc.status === 'finalized' ? 'قطعی' : doc.status === 'voided' ? 'باطل‌شده' : 'پیش‌نویس';
+    const actions = doc.status === 'draft' ? '<button class="small-action" data-edit-document="' + doc.id + '" data-type="' + type + '">ادامه / ثبت</button>' :
+      doc.status === 'finalized' ? '<button class="small-action" data-void-document="' + doc.id + '" data-type="' + type + '">ابطال با علت</button>' : '—';
+    return '<tr><td><span class="product-code">' + escapeHtml(doc.documentNumber) + '</span></td><td>' + escapeHtml(doc.documentDate) + '<small class="date-jalali">' + escapeHtml(jalaliPreview(doc.documentDate)) + '</small></td><td>' + escapeHtml(doc.partyName || '—') + '</td><td>' + digitsFa(doc.itemCount) + '</td><td>' + formatMoney(doc.totalIrr) + '</td><td><span class="status-pill ' + (doc.status === 'finalized' ? '' : 'inactive') + '">' + status + '</span></td><td>' + actions + '</td></tr>';
+  }).join('');
+}
+async function renderInventory() {
+  const rows = await window.marketApp.listInventory();
+  $('inventory-table').innerHTML = rows.length ? rows.map(row => {
+    const negative = row.quantityMilli < 0;
+    return '<tr><td><span class="product-code">' + escapeHtml(row.code) + '</span></td><td class="product-name">' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.unit) + '</td><td><span class="' + (negative ? 'negative-stock' : '') + '">' + quantityLabel(row.quantityMilli) + (negative ? ' ⚠' : '') + '</span></td><td>' + formatMoney(row.latestPurchasePriceIrr) + '</td><td>' + formatMoney(row.valuationIrr) + '</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="empty-cell">برای مشاهدهٔ موجودی، ابتدا کالا و سپس خرید/فروش ثبت کنید.</td></tr>';
+}
+async function openDocument(type, doc = null) {
+  const products = await window.marketApp.listProducts({ activeOnly: true });
+  if (!products.length) { toast('ابتدا از بخش کالاها حداقل یک کالای فعال ثبت کنید.', true); return; }
+  $('document-form').reset(); $('document-form-error').hidden = true;
+  $('document-id').value = doc?.id || ''; $('document-type').value = type;
+  $('document-date').value = doc?.documentDate || localIsoDate();
+  $('document-party').value = doc?.partyName || ''; $('document-notes').value = doc?.notes || '';
+  $('document-dialog-title').textContent = (type === 'purchase' ? 'ثبت خرید' : 'ثبت فروش') + (doc ? ' · پیش‌نویس' : ' جدید');
+  $('document-items').replaceChildren();
+  if (doc?.items?.length) {
+    for (const item of doc.items) addDocumentItem(item, products);
+  } else addDocumentItem(null, products);
+  updateDocumentTotal();
+  $('jalali-date-preview').textContent = jalaliPreview($('document-date').value);
+  $('document-dialog').showModal();
+}
+function addDocumentItem(item = null, products = null) {
+  if (!products) products = state.products;
+  const type = $('document-type').value;
+  const row = document.createElement('div'); row.className = 'document-item-row';
+  const options = products.map(p => '<option value="' + p.id + '" data-unit="' + escapeHtml(p.unit) + '" data-purchase="' + (p.purchasePriceIrr ?? '') + '" data-sale="' + p.salePriceIrr + '">' + escapeHtml(p.code + ' · ' + p.name) + '</option>').join('');
+  row.innerHTML = '<label class="item-product-label">کالا<select class="item-product" required><option value="">انتخاب کالا…</option>' + options + '</select></label><label class="item-quantity-label">مقدار<input class="item-quantity" type="number" min="0.001" step="0.001" value="1" required inputmode="decimal"></label><label class="item-price-label">قیمت واحد (ریال)<input class="item-price" type="number" min="0" step="1" value="0" required inputmode="numeric"></label><div class="item-sum"><small>جمع قلم</small><strong>۰</strong></div><button class="remove-item" type="button" aria-label="حذف قلم">×</button>';
+  $('document-items').append(row);
+  const select = row.querySelector('.item-product'), qty = row.querySelector('.item-quantity'), price = row.querySelector('.item-price');
+  if (item) { select.value = String(item.productId); qty.value = Number(item.quantityMilli) / 1000; price.value = item.unitPriceIrr; }
+  select.addEventListener('change', () => {
+    const opt = select.selectedOptions[0];
+    if (opt) {
+      const unit = opt.dataset.unit || 'عدد';
+      qty.step = ['عدد', 'بسته', 'سرویس'].includes(unit) ? '1' : '0.001';
+      qty.min = qty.step;
+      if (type === 'sale') price.value = opt.dataset.sale || '0';
+      else price.value = opt.dataset.purchase || '0';
+      if (!item) qty.value = '1';
+    }
+    updateDocumentTotal();
+  });
+  qty.addEventListener('input', updateDocumentTotal); price.addEventListener('input', updateDocumentTotal);
+  row.querySelector('.remove-item').addEventListener('click', () => { row.remove(); updateDocumentTotal(); });
+  if (select.value) select.dispatchEvent(new Event('change'));
+}
+function updateDocumentTotal() {
+  let total = 0;
+  document.querySelectorAll('.document-item-row').forEach(row => {
+    const qty = Math.round(Number(row.querySelector('.item-quantity').value || 0) * 1000);
+    const price = Math.max(0, Math.trunc(Number(row.querySelector('.item-price').value || 0)));
+    const sum = Math.round(qty * price / 1000); total += sum;
+    row.querySelector('.item-sum strong').textContent = formatMoney(sum);
+  });
+  $('document-total').textContent = formatMoney(total);
+}
+function collectDocumentPayload() {
+  const items = [...document.querySelectorAll('.document-item-row')].map(row => ({
+    productId: row.querySelector('.item-product').value,
+    quantityMilli: Math.round(Number(row.querySelector('.item-quantity').value) * 1000),
+    unitPriceIrr: row.querySelector('.item-price').value,
+    discountType: 'none', discountValue: 0, taxRateBp: 0
+  }));
+  return { id: $('document-id').value || null, type: $('document-type').value, documentDate: $('document-date').value,
+    partyName: $('document-party').value, notes: $('document-notes').value, items };
+}
+async function submitDocument(finalize) {
+  const submit = finalize ? $('finalize-document') : $('save-document-draft');
+  submit.disabled = true; $('document-form-error').hidden = true;
+  try {
+    const saved = await window.marketApp.saveDocumentDraft(collectDocumentPayload());
+    if (finalize) {
+      const result = await window.marketApp.finalizeDocument(saved.id);
+      toast('سند ' + result.documentNumber + ' با موفقیت قطعی شد.');
+    } else toast('پیش‌نویس سند ذخیره شد.');
+    const type = $('document-type').value; $('document-dialog').close(); await renderDocuments(type); await renderInventory(); await renderDashboard();
+  } catch (error) {
+    $('document-form-error').textContent = error.message || 'ذخیرهٔ سند ناموفق بود.';
+    $('document-form-error').hidden = false;
+  } finally { submit.disabled = false; }
+}
 function openProduct(product = null) {
   $('product-form').reset(); $('product-form-error').hidden = true;
   $('product-id').value = product?.id || ''; $('product-code').value = product?.code || '';
@@ -106,6 +217,19 @@ document.addEventListener('click', async event => {
     try { const active = toggle.dataset.active !== '1'; await window.marketApp.setProductActive(Number(toggle.dataset.toggleProduct), active); toast(active ? 'کالا فعال شد.' : 'کالا غیرفعال شد.'); await renderProducts(); await renderDashboard(); }
     catch (error) { toast(error.message || 'تغییر وضعیت ناموفق بود.', true); } return;
   }
+  const newDoc = event.target.closest('[data-new-document]');
+  if (newDoc) { try { await openDocument(newDoc.dataset.newDocument); } catch(e) { toast(e.message, true); } return; }
+  const editDoc = event.target.closest('[data-edit-document]');
+  if (editDoc) { try { const doc = await window.marketApp.getDocument(Number(editDoc.dataset.editDocument)); await openDocument(editDoc.dataset.type, doc); } catch(e) { toast(e.message, true); } return; }
+  const voidDoc = event.target.closest('[data-void-document]');
+  if (voidDoc) {
+    const reason = window.prompt('علت ابطال این سند را بنویسید:');
+    if (reason && reason.trim()) {
+      try { await window.marketApp.voidDocument(Number(voidDoc.dataset.voidDocument), reason.trim()); toast('سند با حفظ سابقه باطل شد.'); await renderDocuments(voidDoc.dataset.type); await renderInventory(); await renderDashboard(); }
+      catch(e) { toast(e.message || 'ابطال سند ناموفق بود.', true); }
+    }
+    return;
+  }
   const theme = event.target.closest('[data-theme-choice]');
   if (theme) { try { await window.marketApp.setSetting('theme', theme.dataset.themeChoice); applyTheme(theme.dataset.themeChoice); } catch(e) { toast(e.message, true); } return; }
   const money = event.target.closest('[data-money-choice]');
@@ -127,6 +251,17 @@ $('theme-toggle').addEventListener('click', async () => {
   const next = state.theme === 'dark' ? 'light' : 'dark';
   try { await window.marketApp.setSetting('theme', next); applyTheme(next); } catch(e) { toast(e.message, true); }
 });
+
+$('document-date').addEventListener('change', () => { $('jalali-date-preview').textContent = jalaliPreview($('document-date').value); });
+$('add-document-item').addEventListener('click', async () => {
+  try { const products = await window.marketApp.listProducts({ activeOnly: true }); addDocumentItem(null, products); updateDocumentTotal(); }
+  catch(e) { toast(e.message, true); }
+});
+$('save-document-draft').addEventListener('click', () => submitDocument(false));
+$('document-form').addEventListener('submit', event => { event.preventDefault(); submitDocument(true); });
+$('close-document-dialog').addEventListener('click', () => $('document-dialog').close());
+$('cancel-document').addEventListener('click', () => $('document-dialog').close());
+$('refresh-inventory').addEventListener('click', () => renderInventory().catch(e => toast(e.message, true)));
 window.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') button.click(); }));
   try {
