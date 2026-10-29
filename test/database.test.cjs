@@ -18,7 +18,7 @@ test('opens a local database and applies initial migration', (t) => {
     fs.rmSync(f.directory, { recursive: true, force: true });
   });
   assert.equal(db.pragma('foreign_keys', { simple: true }), 1);
-  assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 3);
+  assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 4);
   assert.equal(db.prepare("SELECT meta_value FROM app_meta WHERE meta_key = 'application_id'").get().meta_value, 'market-desktop');
   assert.equal(db.pragma('quick_check')[0].quick_check, 'ok');
 });
@@ -32,7 +32,7 @@ test('migrations are idempotent', (t) => {
   });
   runMigrations(db, f.migrationsDir);
   runMigrations(db, f.migrationsDir);
-  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 3);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 4);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM app_meta').get().count, 2);
 });
 
