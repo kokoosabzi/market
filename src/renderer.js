@@ -88,7 +88,7 @@ async function saveProduct(event) {
       id: $('product-id').value || null, code: $('product-code').value, name: $('product-name').value,
       categoryId: $('product-category').value || null, unit: $('product-unit').value,
       purchasePriceIrr: $('product-purchase-price').value, salePriceIrr: $('product-sale-price').value,
-      minStockMilli: $('product-min-stock').value, description: $('product-description').value
+      minStockMilli: Math.round(Number($('product-min-stock').value) * 1000), description: $('product-description').value
     });
     $('product-dialog').close(); toast('اطلاعات کالا ذخیره شد.'); await renderProducts(); await renderDashboard();
   } catch (error) {
