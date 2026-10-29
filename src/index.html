@@ -1,34 +1,80 @@
 <!doctype html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
-  <meta name="color-scheme" content="light">
-  <title>Market | نرم‌افزار فروشگاهی</title>
+  <meta name="color-scheme" content="light dark">
+  <title>Market | مدیریت فروشگاه</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./renderer.js" defer></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand-mark" aria-hidden="true">م</div>
-    <div><p class="eyebrow">مدیریت فروشگاه</p><h1>Market</h1></div>
-    <span class="offline-pill"><span class="status-dot"></span> محلی و آفلاین</span>
-  </header>
-  <main>
-    <section class="welcome">
-      <p class="eyebrow">نسخهٔ پایه</p>
-      <h2>زیرساخت برنامه آمادهٔ توسعه است</h2>
-      <p>این پوسته برای تثبیت اجرای دسکتاپ، اتصال امن رابط به برنامه و راه‌اندازی پایگاه دادهٔ محلی ساخته شده است.</p>
-    </section>
-    <section class="status-grid" aria-label="وضعیت برنامه">
-      <article class="status-card"><span class="card-label">وضعیت پایگاه داده</span><strong id="database-status" role="status">در حال بررسی…</strong><span class="card-hint" id="database-location">مسیر داده در حال دریافت است</span></article>
-      <article class="status-card"><span class="card-label">نسخهٔ ساختار داده</span><strong id="schema-version">—</strong><span class="card-hint">migrationهای نسخه‌دار</span></article>
-      <article class="status-card"><span class="card-label">حالت اجرا</span><strong>دسکتاپ محلی</strong><span class="card-hint">بدون نیاز به اینترنت هنگام اجرا</span></article>
-    </section>
-    <section class="next-step"><div class="next-icon" aria-hidden="true">✓</div><div><h3>پایهٔ امن، پیش از امکانات فروشگاهی</h3><p>مدیریت کالا، خرید و فروش در مراحل بعدی و پس از آزمون این زیرساخت اضافه خواهند شد. در این نسخه هیچ سند مالی ثبت نمی‌شود.</p></div></section>
-    <p id="startup-error" class="error-message" role="alert" hidden></p>
-  </main>
-  <footer><span>Market · نسخهٔ اولیه</span><span id="app-version">در حال بارگذاری نسخه…</span></footer>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="منوی اصلی">
+      <div class="brand"><span class="brand-mark">م</span><div><strong>Market</strong><small>مدیریت فروشگاه</small></div></div>
+      <div class="sidebar-caption">فضای کاری</div>
+      <nav class="main-nav">
+        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span> نمای کلی</button>
+        <button class="nav-item" data-page="products"><span class="nav-icon">▦</span> کالاها</button>
+        <button class="nav-item" data-page="categories"><span class="nav-icon">▤</span> دسته‌بندی‌ها</button>
+        <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span> تنظیمات</button>
+      </nav>
+      <div class="sidebar-bottom"><span class="status-dot"></span><div><strong>حالت آفلاین</strong><small>اطلاعات روی همین دستگاه</small></div></div>
+    </aside>
+    <main class="workspace">
+      <header class="topbar">
+        <div><p class="eyebrow" id="breadcrumb">فضای کاری / نمای کلی</p><h1 id="page-title">نمای کلی</h1></div>
+        <div class="top-actions"><span class="offline-label"><span class="status-dot"></span> پایگاه داده محلی</span><button id="theme-toggle" class="icon-button" type="button" aria-label="تغییر پوسته" title="تغییر پوسته">◐</button></div>
+      </header>
+      <section id="dashboard-page" class="page">
+        <div class="hero-panel"><div><span class="hero-tag">نسخهٔ دسکتاپ</span><h2>مدیریت فروشگاه، ساده و متمرکز</h2><p>اطلاعات کالاها را ثبت کنید و پایهٔ دادهٔ فروشگاه را برای مراحل بعدی آماده نگه دارید.</p><button class="primary-button" data-go="products">مدیریت کالاها <span>←</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-square square-one"></div><div class="art-square square-two"></div><div class="art-core">م</div></div></div>
+        <div class="section-heading"><div><h2>وضعیت برنامه</h2><p>اطلاعات محلی و وضعیت پایگاه داده</p></div><span class="subtle-pill" id="app-version">در حال بررسی نسخه…</span></div>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-icon blue">▦</div><span>کالاهای ثبت‌شده</span><strong id="product-count">۰</strong><small>شامل کالاهای فعال و غیرفعال</small></article>
+          <article class="stat-card"><div class="stat-icon violet">▤</div><span>دسته‌بندی‌ها</span><strong id="category-count">۰</strong><small>گروه‌بندی کالاها</small></article>
+          <article class="stat-card"><div class="stat-icon green">◉</div><span>وضعیت پایگاه داده</span><strong id="database-status">در حال بررسی</strong><small id="database-location">مسیر محلی برنامه</small></article>
+        </div>
+        <div class="notice-panel"><span class="notice-symbol">i</span><div><strong>یادآوری محدودهٔ نسخه</strong><p>این نسخه هنوز ابزار ثبت خرید و فروش یا حسابداری ندارد. در این مرحله می‌توانید کالاها و دسته‌بندی‌ها را مدیریت کنید؛ هیچ تراکنش مالی انجام نمی‌شود.</p></div></div>
+      </section>
+      <section id="products-page" class="page" hidden>
+        <div class="section-heading"><div><h2>فهرست کالاها</h2><p>ثبت، جست‌وجو و نگهداری مشخصات کالا</p></div><button class="primary-button" id="new-product">＋ کالای جدید</button></div>
+        <div class="toolbar"><label class="search-box"><span>⌕</span><input id="product-search" type="search" placeholder="جست‌وجو بر اساس کد، نام یا دسته‌بندی…" autocomplete="off"></label><label class="filter-label"><input id="show-inactive" type="checkbox"> نمایش کالاهای غیرفعال</label></div>
+        <div class="table-wrap"><table><thead><tr><th>کد کالا</th><th>نام کالا</th><th>دسته‌بندی</th><th>واحد</th><th>قیمت خرید (ریال)</th><th>قیمت فروش (ریال)</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="products-table"><tr><td colspan="8" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+        <p class="table-footnote" id="products-summary"></p>
+      </section>
+      <section id="categories-page" class="page" hidden>
+        <div class="section-heading"><div><h2>دسته‌بندی کالاها</h2><p>برای مرتب‌سازی و فیلترکردن فهرست کالاها</p></div></div>
+        <form id="category-form" class="inline-form"><label>نام دسته‌بندی<input id="category-name" maxlength="80" required placeholder="مثلاً مواد غذایی"></label><button class="primary-button" type="submit">ثبت دسته‌بندی</button></form>
+        <div id="categories-list" class="category-list"></div>
+      </section>
+      <section id="settings-page" class="page" hidden>
+        <div class="section-heading"><div><h2>تنظیمات نمایش</h2><p>ظاهر برنامه را مطابق سلیقهٔ خود تنظیم کنید</p></div></div>
+        <div class="settings-card"><div><strong>پوستهٔ برنامه</strong><p>می‌توانید از حالت روشن، تیره یا تنظیم خودکار سیستم استفاده کنید.</p></div><div class="segmented-control" role="group" aria-label="پوسته"><button data-theme-choice="light" type="button">روشن</button><button data-theme-choice="dark" type="button">تیره</button><button data-theme-choice="system" type="button">خودکار</button></div></div>
+        <div class="settings-card"><div><strong>واحد نمایش قیمت</strong><p>مبالغ در پایگاه داده همیشه به ریال ذخیره می‌شوند.</p></div><div class="segmented-control" role="group" aria-label="واحد نمایش"><button data-money-choice="irr" type="button">ریال</button><button data-money-choice="irt" type="button">تومان</button></div></div>
+        <div class="settings-card"><div><strong>پایگاه داده</strong><p id="settings-db-location">مسیر در حال دریافت است</p></div><span class="subtle-pill" id="schema-version">نسخهٔ ساختار —</span></div>
+      </section>
+      <footer><span>Market · نرم‌افزار فروشگاهی محلی</span><span>نسخهٔ آزمایشی · بدون نیاز به اینترنت</span></footer>
+    </main>
+  </div>
+  <dialog id="product-dialog" class="modal">
+    <form id="product-form" class="modal-form">
+      <div class="modal-heading"><div><span class="eyebrow">مشخصات پایه</span><h2 id="product-dialog-title">ثبت کالای جدید</h2></div><button id="close-product-dialog" class="icon-button" type="button" aria-label="بستن">×</button></div>
+      <input id="product-id" type="hidden">
+      <div class="form-grid">
+        <label>کد کالا <span class="required">*</span><input id="product-code" required maxlength="40" autocomplete="off" placeholder="مثلاً P-1001"></label>
+        <label>نام کالا <span class="required">*</span><input id="product-name" required maxlength="160" autocomplete="off" placeholder="نام کامل کالا"></label>
+        <label>دسته‌بندی<select id="product-category"><option value="">بدون دسته‌بندی</option></select></label>
+        <label>واحد سنجش<select id="product-unit"><option>عدد</option><option>کیلوگرم</option><option>گرم</option><option>متر</option><option>لیتر</option><option>بسته</option><option>سرویس</option></select></label>
+        <label>قیمت خرید (ریال)<input id="product-purchase-price" type="number" min="0" step="1" inputmode="numeric" placeholder="در صورت اطلاع"></label>
+        <label>قیمت فروش (ریال)<input id="product-sale-price" type="number" min="0" step="1" inputmode="numeric" value="0" required></label>
+        <label>حداقل موجودی<input id="product-min-stock" type="number" min="0" step="1" inputmode="numeric" value="0" required><small>فعلاً به‌صورت واحد هزارم ذخیره می‌شود.</small></label>
+        <label class="span-two">توضیحات<textarea id="product-description" rows="3" maxlength="1000" placeholder="توضیحات اختیاری"></textarea></label>
+      </div>
+      <p class="form-error" id="product-form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button type="button" class="secondary-button" id="cancel-product">انصراف</button><button type="submit" class="primary-button" id="save-product">ذخیرهٔ کالا</button></div>
+    </form>
+  </dialog>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
 </body>
 </html>
