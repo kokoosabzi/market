@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/phase-1-electron-sqlite
   pull_request:
     branches:
       - main
