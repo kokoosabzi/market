@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="color-scheme" content="light">
+  <title>Market | نرم‌افزار فروشگاهی</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./renderer.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark" aria-hidden="true">م</div>
+    <div><p class="eyebrow">مدیریت فروشگاه</p><h1>Market</h1></div>
+    <span class="offline-pill"><span class="status-dot"></span> محلی و آفلاین</span>
+  </header>
+  <main>
+    <section class="welcome">
+      <p class="eyebrow">نسخهٔ پایه</p>
+      <h2>زیرساخت برنامه آمادهٔ توسعه است</h2>
+      <p>این پوسته برای تثبیت اجرای دسکتاپ، اتصال امن رابط به برنامه و راه‌اندازی پایگاه دادهٔ محلی ساخته شده است.</p>
+    </section>
+    <section class="status-grid" aria-label="وضعیت برنامه">
+      <article class="status-card"><span class="card-label">وضعیت پایگاه داده</span><strong id="database-status" role="status">در حال بررسی…</strong><span class="card-hint" id="database-location">مسیر داده در حال دریافت است</span></article>
+      <article class="status-card"><span class="card-label">نسخهٔ ساختار داده</span><strong id="schema-version">—</strong><span class="card-hint">migrationهای نسخه‌دار</span></article>
+      <article class="status-card"><span class="card-label">حالت اجرا</span><strong>دسکتاپ محلی</strong><span class="card-hint">بدون نیاز به اینترنت هنگام اجرا</span></article>
+    </section>
+    <section class="next-step"><div class="next-icon" aria-hidden="true">✓</div><div><h3>پایهٔ امن، پیش از امکانات فروشگاهی</h3><p>مدیریت کالا، خرید و فروش در مراحل بعدی و پس از آزمون این زیرساخت اضافه خواهند شد. در این نسخه هیچ سند مالی ثبت نمی‌شود.</p></div></section>
+    <p id="startup-error" class="error-message" role="alert" hidden></p>
+  </main>
+  <footer><span>Market · نسخهٔ اولیه</span><span id="app-version">در حال بارگذاری نسخه…</span></footer>
+</body>
+</html>

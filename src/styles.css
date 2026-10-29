@@ -1,0 +1,20 @@
+:root { font-family: Tahoma, "Segoe UI", sans-serif; color: #1f2937; background: #f5f7fa; font-synthesis: none; text-rendering: optimizeLegibility; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; }
+.topbar { min-height: 88px; padding: 18px clamp(22px, 5vw, 72px); display: flex; align-items: center; gap: 14px; background: #fff; border-bottom: 1px solid #e5eaf0; }
+.brand-mark { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; color: white; background: #2257a5; font-size: 24px; font-weight: 700; }
+h1,h2,h3,p { margin-top: 0; } h1 { margin-bottom: 0; font-size: 21px; letter-spacing: .2px; }
+.eyebrow { margin: 0 0 5px; color: #64748b; font-size: 12px; }
+.offline-pill { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 8px; border: 1px solid #dcefe4; border-radius: 999px; padding: 8px 12px; color: #246b45; background: #f3fbf6; font-size: 12px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #2f9e61; }
+main { width: min(1080px, 90%); margin: 46px auto 64px; }
+.welcome { max-width: 720px; margin-bottom: 30px; } .welcome h2 { margin-bottom: 12px; font-size: clamp(24px, 3vw, 34px); line-height: 1.5; } .welcome > p:last-child { color: #64748b; line-height: 2; max-width: 700px; }
+.status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.status-card { min-height: 150px; padding: 22px; background: #fff; border: 1px solid #e5eaf0; border-radius: 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 13px; }
+.card-label,.card-hint { color: #64748b; font-size: 12px; } .status-card strong { font-size: 19px; overflow-wrap: anywhere; } .card-hint { line-height: 1.8; overflow-wrap: anywhere; }
+.next-step { display: flex; gap: 16px; align-items: flex-start; margin-top: 20px; padding: 22px; background: #fff; border: 1px solid #e5eaf0; border-radius: 16px; }
+.next-icon { flex: 0 0 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: #edf4ff; color: #2257a5; font-weight: 700; }
+.next-step h3 { margin: 3px 0 8px; font-size: 16px; } .next-step p { margin: 0; color: #64748b; line-height: 2; font-size: 13px; }
+.error-message { margin-top: 20px; padding: 14px; border: 1px solid #f3c7c7; border-radius: 10px; color: #9b2525; background: #fff6f6; }
+footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 22px clamp(22px, 5vw, 72px); border-top: 1px solid #e5eaf0; color: #64748b; font-size: 12px; }
+@media (max-width: 760px) { .status-grid { grid-template-columns: 1fr; } main { margin-top: 30px; } .topbar { flex-wrap: wrap; } .offline-pill { margin-inline-start: 0; } }
