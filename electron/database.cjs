@@ -39,12 +39,37 @@ function runMigrations(db, migrationsDir) {
   ).all();
   const migrationsByVersion = new Map(migrations.map((migration) => [migration.version, migration]));
 
+  // Every recorded migration must still exist under the same version and name.
   for (const applied of appliedMigrations) {
     const localMigration = migrationsByVersion.get(applied.version);
     if (!localMigration || localMigration.name !== applied.name) {
       const localName = localMigration ? localMigration.name : 'missing';
       throw new Error('Migration history mismatch at version ' + applied.version +
         ': database has "' + applied.name + '" but local migration is "' + localName + '"');
+    }
+  }
+
+  // Applied rows must form a complete prefix of the local migration sequence.
+  // Otherwise a missing history row could cause an already-applied SQL file to run again.
+  for (let index = 0; index < appliedMigrations.length; index += 1) {
+    const expected = migrations[index];
+    const applied = appliedMigrations[index];
+    if (!expected || expected.version !== applied.version || expected.name !== applied.name) {
+      throw new Error('Incomplete migration history: expected migration ' +
+        (expected ? expected.version + ' (' + expected.name + ')' : 'end of history') +
+        ' at history position ' + (index + 1) + ', found ' +
+        applied.version + ' (' + applied.name + ')');
+    }
+  }
+
+  // An empty history is valid only for a genuinely fresh database. If the
+  // application schema already exists, all migration records may have been lost.
+  if (appliedMigrations.length === 0) {
+    const existingApplicationTables = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('app_settings', 'app_meta')"
+    ).all();
+    if (existingApplicationTables.length > 0) {
+      throw new Error('Incomplete migration history: application tables exist but no migrations are recorded');
     }
   }
 
