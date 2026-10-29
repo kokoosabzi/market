@@ -48,6 +48,26 @@ jobs:
         run: npm run rebuild:native
       - name: Smoke-test Electron, renderer IPC, and SQLite
         run: npm run smoke:electron
+      - name: Build synthetic previous-version installer for upgrade test
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packagePath = Join-Path $PWD 'package.json'
+          try {
+            node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("package.json","utf8")); p.version="0.0.9"; fs.writeFileSync("package.json", JSON.stringify(p,null,2)+"\n")'
+            if ($LASTEXITCODE -ne 0) { throw 'Could not prepare synthetic previous-version package metadata' }
+            Remove-Item -LiteralPath 'release' -Recurse -Force -ErrorAction SilentlyContinue
+            npm run dist:win
+            if ($LASTEXITCODE -ne 0) { throw 'Building the synthetic previous-version installer failed' }
+            $previous = Get-ChildItem -Path 'release' -Filter '*.exe' | Where-Object { $_.Name -match 'Setup' } | Select-Object -First 1
+            if (-not $previous) { throw 'Synthetic previous-version installer was not generated' }
+            Copy-Item -LiteralPath $previous.FullName -Destination (Join-Path $env:RUNNER_TEMP 'market-previous-setup.exe') -Force
+          }
+          finally {
+            git checkout -- package.json
+            Remove-Item -LiteralPath 'release' -Recurse -Force -ErrorAction SilentlyContinue
+          }
       - name: Build Windows installer
         if: runner.os == 'Windows'
         run: npm run dist:win
