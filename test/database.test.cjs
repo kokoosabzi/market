@@ -18,7 +18,7 @@ test('opens a local database and applies initial migration', (t) => {
     fs.rmSync(f.directory, { recursive: true, force: true });
   });
   assert.equal(db.pragma('foreign_keys', { simple: true }), 1);
-  assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 4);
+  assert.equal(db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 5);
   assert.equal(db.prepare("SELECT meta_value FROM app_meta WHERE meta_key = 'application_id'").get().meta_value, 'market-desktop');
   assert.equal(db.pragma('quick_check')[0].quick_check, 'ok');
 });
@@ -32,7 +32,7 @@ test('migrations are idempotent', (t) => {
   });
   runMigrations(db, f.migrationsDir);
   runMigrations(db, f.migrationsDir);
-  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 4);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 5);
   assert.equal(db.prepare('SELECT COUNT(*) AS count FROM app_meta').get().count, 2);
 });
 
@@ -151,4 +151,37 @@ test('rejects empty migration history when unrelated application tables remain',
     db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'orphaned_business_table'").get().name,
     'orphaned_business_table'
   );
+});
+
+
+test('migration 005 backfills product identity and locks finalized snapshots', (t) => {
+  const f = fixture();
+  const migrationsDir = path.join(f.directory, 'migrations');
+  fs.mkdirSync(migrationsDir, { recursive: true });
+  const sourceDir = path.join(__dirname, '../electron/migrations');
+  for (const name of fs.readdirSync(sourceDir).filter(name => /^00[1-4]_.*\.sql$/.test(name))) {
+    fs.copyFileSync(path.join(sourceDir, name), path.join(migrationsDir, name));
+  }
+  const db = new (require('better-sqlite3'))(f.databasePath);
+  t.after(() => {
+    if (db.open) db.close();
+    fs.rmSync(f.directory, { recursive: true, force: true });
+  });
+  runMigrations(db, migrationsDir);
+  const product = db.prepare("INSERT INTO products(code,name,unit) VALUES('OLD-01','نام قدیمی','کیلوگرم')").run();
+  const document = db.prepare("INSERT INTO documents(document_type,document_number,document_date) VALUES('sale','LEGACY-1','2026-10-01')").run();
+  const item = db.prepare("INSERT INTO document_items(document_id,product_id,quantity_milli,unit_price_irr,gross_irr,discount_irr,tax_irr,total_irr) VALUES(?,?,1000,100,100,0,0,100)").run(document.lastInsertRowid, product.lastInsertRowid);
+  fs.copyFileSync(path.join(sourceDir, '005_document_item_product_snapshots.sql'), path.join(migrationsDir, '005_document_item_product_snapshots.sql'));
+  runMigrations(db, migrationsDir);
+  assert.deepEqual(
+    db.prepare('SELECT product_code_snapshot, product_name_snapshot, unit_snapshot FROM document_items WHERE id=?').get(item.lastInsertRowid),
+    { product_code_snapshot: 'OLD-01', product_name_snapshot: 'نام قدیمی', unit_snapshot: 'کیلوگرم' }
+  );
+  db.prepare("UPDATE products SET code='NEW-01', name='نام جدید', unit='گرم' WHERE id=?").run(product.lastInsertRowid);
+  assert.deepEqual(
+    db.prepare('SELECT product_code_snapshot, product_name_snapshot, unit_snapshot FROM document_items WHERE id=?').get(item.lastInsertRowid),
+    { product_code_snapshot: 'OLD-01', product_name_snapshot: 'نام قدیمی', unit_snapshot: 'کیلوگرم' }
+  );
+  db.prepare("UPDATE documents SET status='finalized' WHERE id=?").run(document.lastInsertRowid);
+  assert.throws(() => db.prepare("UPDATE document_items SET product_name_snapshot='تغییر غیرمجاز' WHERE id=?").run(item.lastInsertRowid), /immutable/);
 });
