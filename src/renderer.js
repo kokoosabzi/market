@@ -23,7 +23,11 @@ async function goTo(page) {
   if (!pageTitles[page]) return;
   state.page = page;
   document.querySelectorAll('.page').forEach(section => { section.hidden = section.id !== page + '-page'; });
-  document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === page));
+  document.querySelectorAll('.nav-item').forEach(button => {
+    const active = button.dataset.page === page;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+  });
   $('page-title').textContent = pageTitles[page]; $('breadcrumb').textContent = 'فضای کاری / ' + pageTitles[page];
   if (page === 'products') await renderProducts();
   if (page === 'categories') await renderCategories();
@@ -272,6 +276,8 @@ async function saveProduct(event) {
 document.addEventListener('click', async event => {
   const nav = event.target.closest('[data-page]'); if (nav) { await goTo(nav.dataset.page); return; }
   const go = event.target.closest('[data-go]'); if (go) { await goTo(go.dataset.go); return; }
+  const salesScroll = event.target.closest('[data-sales-scroll]');
+  if (salesScroll) { document.getElementById(salesScroll.dataset.salesScroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   const edit = event.target.closest('[data-edit-product]');
   if (edit) { const p = state.products.find(item => item.id === Number(edit.dataset.editProduct)); if (p) openProduct(p); return; }
   const toggle = event.target.closest('[data-toggle-product]');
