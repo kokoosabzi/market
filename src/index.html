@@ -15,13 +15,13 @@
       <div class="brand"><span class="brand-mark">م</span><div><strong>Market</strong><small>مدیریت فروشگاه</small></div></div>
       <div class="sidebar-caption">فضای کاری</div>
       <nav class="main-nav">
-        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span> نمای کلی</button>
+        <button class="nav-item active sales-primary-nav" data-page="sale"><span class="nav-icon">↗</span> فروش و فاکتورها</button>
+        <button class="nav-item" data-page="dashboard"><span class="nav-icon">⌂</span> نمای کلی</button>
         <button class="nav-item" data-page="products"><span class="nav-icon">▦</span> کالاها</button>
         <button class="nav-item" data-page="categories"><span class="nav-icon">▤</span> دسته‌بندی‌ها</button>
         <button class="nav-item" data-page="purchase"><span class="nav-icon">↙</span> خریدها</button>
-        <button class="nav-item" data-page="sale"><span class="nav-icon">↗</span> فروش‌ها</button>
         <button class="nav-item" data-page="inventory"><span class="nav-icon">▥</span> موجودی</button>
-        <button class="nav-item" data-page="returns"><span class="nav-icon">↩</span> برگشت‌ها</button>
+        <button class="nav-item" data-page="returns"><span class="nav-icon">↩</span> برگشت از فروش و خرید</button>
         <button class="nav-item" data-page="reports"><span class="nav-icon">▧</span> گزارش‌ها</button>
         <button class="nav-item" data-page="backup"><span class="nav-icon">⬇</span> پشتیبان‌گیری</button>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span> تنظیمات</button>
@@ -30,11 +30,11 @@
     </aside>
     <main class="workspace">
       <header class="topbar">
-        <div><p class="eyebrow" id="breadcrumb">فضای کاری / نمای کلی</p><h1 id="page-title">نمای کلی</h1></div>
+        <div><p class="eyebrow" id="breadcrumb">فضای کاری / فروش و فاکتورها</p><h1 id="page-title">فروش و فاکتورها</h1></div>
         <div class="top-actions"><span class="offline-label"><span class="status-dot"></span> پایگاه داده محلی</span><button id="theme-toggle" class="icon-button" type="button" aria-label="تغییر پوسته" title="تغییر پوسته">◐</button></div>
       </header>
-      <section id="dashboard-page" class="page">
-        <div class="hero-panel"><div><span class="hero-tag">نسخهٔ دسکتاپ</span><h2>مدیریت فروشگاه، ساده و متمرکز</h2><p>کالاها، خرید و فروش، موجودی و گزارش‌های فروشگاه را در یک محیط محلی و فارسی مدیریت کنید.</p><button class="primary-button" data-go="products">مدیریت کالاها <span>←</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-square square-one"></div><div class="art-square square-two"></div><div class="art-core">م</div></div></div>
+      <section id="dashboard-page" class="page" hidden>
+        <div class="hero-panel"><div><span class="hero-tag">نسخهٔ دسکتاپ</span><h2>مدیریت فروشگاه، ساده و متمرکز</h2><p>کالاها، خرید و فروش، موجودی و گزارش‌های فروشگاه را در یک محیط محلی و فارسی مدیریت کنید.</p><button class="primary-button" data-go="sale">شروع فروش <span>←</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-square square-one"></div><div class="art-square square-two"></div><div class="art-core">م</div></div></div>
         <div class="section-heading"><div><h2>وضعیت برنامه</h2><p>اطلاعات محلی و وضعیت پایگاه داده</p></div><span class="subtle-pill" id="app-version">در حال بررسی نسخه…</span></div>
         <div class="stats-grid">
           <article class="stat-card"><div class="stat-icon blue">▦</div><span>کالاهای ثبت‌شده</span><strong id="product-count">۰</strong><small>شامل کالاهای فعال و غیرفعال</small></article>
@@ -59,7 +59,7 @@
         <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>فروشنده (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="purchase-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
       </section>
       <section id="sale-page" class="page" hidden>
-        <div class="section-heading"><div><h2>اسناد فروش</h2><p>ثبت فروش، کاهش موجودی و نگهداری snapshot بهای تمام‌شده</p></div><button class="primary-button" data-new-document="sale">＋ فروش جدید</button></div>
+        <div class="section-heading"><div><h2>فروش و فاکتورها</h2><p>ثبت فروش، صدور فاکتور، مشاهده و چاپ مجدد</p></div><button class="primary-button" data-new-document="sale">＋ فروش جدید</button></div>
         <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>خریدار (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="sale-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
       </section>
       <section id="inventory-page" class="page" hidden>
