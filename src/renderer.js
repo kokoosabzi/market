@@ -147,7 +147,7 @@ async function renderDocuments(type) {
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">هنوز سندی ثبت نشده است. برای شروع، سند جدید بسازید.</td></tr>'; return; }
   tbody.innerHTML = rows.map(doc => {
     const status = doc.status === 'finalized' ? 'قطعی' : doc.status === 'voided' ? 'باطل‌شده' : 'پیش‌نویس';
-    const actions = doc.status === 'draft' ? '<button class="small-action" data-edit-document="' + doc.id + '" data-type="' + type + '">ادامه / ثبت</button>' :
+    const actions = doc.status === 'draft' ? (type === 'sale' ? '<button class="small-action" data-pos-edit="' + doc.id + '">ادامه در صندوق</button>' : '<button class="small-action" data-edit-document="' + doc.id + '" data-type="' + type + '">ادامه / ثبت</button>') :
       doc.status === 'finalized' ? '<button class="small-action" data-void-document="' + doc.id + '" data-type="' + type + '">ابطال با علت</button>' : '—';
     return '<tr><td><span class="product-code">' + escapeHtml(doc.documentNumber) + '</span></td><td>' + escapeHtml(doc.documentDate) + '<small class="date-jalali">' + escapeHtml(jalaliPreview(doc.documentDate)) + '</small></td><td>' + escapeHtml(doc.partyName || '—') + '</td><td>' + digitsFa(doc.itemCount) + '</td><td>' + formatMoney(doc.totalIrr) + '</td><td><span class="status-pill ' + (doc.status === 'finalized' ? '' : 'inactive') + '">' + status + '</span></td><td>' + actions + '</td></tr>';
   }).join('');
