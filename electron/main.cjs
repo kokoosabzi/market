@@ -531,9 +531,80 @@ function runSmokeCheck() {
   if (!process.argv.includes('--smoke-test')) return;
   mainWindow.webContents.once('did-finish-load', async () => {
     try {
-      const result = await mainWindow.webContents.executeJavaScript('window.marketApp.getDatabaseStatus()');
-      if (!result?.connected || result.schemaVersion < 1) throw new Error('Renderer IPC or SQLite migration check failed');
-      console.log(`ELECTRON_SMOKE_OK schema=${result.schemaVersion}`);
+      const result = await mainWindow.webContents.executeJavaScript(`(async () => {
+        const api = window.marketApp;
+        const status = await api.getDatabaseStatus();
+        if (!status?.connected || status.schemaVersion < 5) throw new Error('Renderer IPC or SQLite migration check failed');
+
+        const suffix = Date.now().toString(36).toUpperCase();
+        const originalName = 'Smoke test product ' + suffix;
+        const changedName = originalName + ' renamed';
+        const product = await api.saveProduct({
+          code: 'SMOKE-' + suffix, name: originalName, unit: 'عدد',
+          salePriceIrr: 1250, minStockMilli: 0, description: 'Temporary Electron integration smoke test'
+        });
+        if (!product?.id) throw new Error('Smoke test product creation failed');
+
+        const draft = await api.saveDocumentDraft({
+          type: 'sale',
+          documentDate: new Date().toISOString().slice(0, 10),
+          partyName: '',
+          notes: 'Electron end-to-end smoke test',
+          items: [{ productId: product.id, quantityMilli: 2000, unitPriceIrr: 1250, discountType: 'none', discountValue: 0 }]
+        });
+        if (!draft?.id || draft.status !== 'draft' || draft.total !== undefined && draft.total !== 2500) {
+          throw new Error('Draft save failed or returned unexpected totals');
+        }
+
+        let saved = await api.getDocument(draft.id);
+        if (saved.status !== 'draft' || saved.items?.length !== 1 ||
+            saved.items[0].productName !== originalName || saved.items[0].quantityMilli !== 2000) {
+          throw new Error('Draft reopen or product snapshot check failed');
+        }
+
+        await api.saveProduct({
+          id: product.id, code: 'SMOKE-' + suffix, name: changedName, unit: 'عدد',
+          salePriceIrr: 1300, minStockMilli: 0, description: 'Renamed after draft save'
+        });
+        saved = await api.getDocument(draft.id);
+        if (saved.items[0].productName !== originalName) {
+          throw new Error('Draft item snapshot changed after catalog edit');
+        }
+
+        const preview = await api.previewDocumentFinalization(draft.id);
+        if (!Array.isArray(preview.warnings) || preview.warnings.length !== 1) {
+          throw new Error('Expected the insufficient-stock warning before finalization');
+        }
+
+        const finalized = await api.finalizeDocument(draft.id);
+        if (finalized.status !== 'finalized' || !finalized.documentNumber) {
+          throw new Error('Document finalization failed');
+        }
+        const reopened = await api.getDocument(draft.id);
+        if (reopened.status !== 'finalized' || reopened.items[0].productName !== originalName) {
+          throw new Error('Finalized document history or snapshot check failed');
+        }
+
+        const inventory = await api.listInventory();
+        const stock = inventory.find(row => row.id === product.id);
+        if (!stock || stock.quantityMilli !== -2000) {
+          throw new Error('Sale inventory movement was not recorded exactly once');
+        }
+
+        let duplicateRejected = false;
+        try { await api.finalizeDocument(draft.id); }
+        catch (_) { duplicateRejected = true; }
+        if (!duplicateRejected) throw new Error('Duplicate finalization was not rejected');
+
+        const inventoryAfterRetry = await api.listInventory();
+        const stockAfterRetry = inventoryAfterRetry.find(row => row.id === product.id);
+        if (!stockAfterRetry || stockAfterRetry.quantityMilli !== -2000) {
+          throw new Error('Duplicate finalization changed inventory');
+        }
+        return { connected: status.connected, schemaVersion: status.schemaVersion, documentId: draft.id };
+      })()`);
+      if (!result?.connected || result.schemaVersion < 5) throw new Error('Electron integration smoke test returned invalid status');
+      console.log(`ELECTRON_SMOKE_OK schema=${result.schemaVersion} sale_document=${result.documentId}`);
       if (database?.open) database.close();
       database = null;
       app.exit(0);
