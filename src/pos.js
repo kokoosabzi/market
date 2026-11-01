@@ -9,9 +9,9 @@
   const today = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   const round = (a,b) => Number((BigInt(a)+BigInt(b)/2n)/BigInt(b));
   const amountFor = item => {
-    const gross=round(item.unitPriceIrr*item.quantityMilli,1000);
-    const discount=item.discountType==='fixed'?Math.min(gross,item.discountValue||0):item.discountType==='percent'?round(gross*Math.min(100,item.discountValue||0),100):0;
-    const net=gross-discount, tax=round(net*state.taxRateBp,10000);
+    const gross=round(BigInt(item.unitPriceIrr)*BigInt(item.quantityMilli),1000n);
+    const discount=item.discountType==='fixed'?Math.min(gross,item.discountValue||0):item.discountType==='percent'?round(BigInt(gross)*BigInt(Math.min(100,item.discountValue||0)),100n):0;
+    const net=gross-discount, tax=round(BigInt(net)*BigInt(state.taxRateBp),10000n);
     return {gross,discount,net,tax,total:net+tax};
   };
   function showError(message){$('pos-error').textContent=message;$('pos-error').hidden=false;}
