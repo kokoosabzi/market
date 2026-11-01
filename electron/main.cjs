@@ -41,8 +41,9 @@ function registerIpcHandlers() {
   ipcMain.handle('market:set-setting', (_event, payload = {}) => {
     const key = requireText(payload.key, 'کلید تنظیمات', 80);
     const value = requireText(payload.value, 'مقدار تنظیمات', 80);
-    if (!['theme', 'money_display', 'tax_rate_bp'].includes(key)) throw new Error('این تنظیم قابل تغییر نیست.');
+    if (!['theme', 'money_display', 'tax_rate_bp', 'layout_mode'].includes(key)) throw new Error('این تنظیم قابل تغییر نیست.');
     if (key === 'theme' && !['light', 'dark', 'system'].includes(value)) throw new Error('پوسته انتخاب‌شده معتبر نیست.');
+    if (key === 'layout_mode' && !['classic', 'tiles'].includes(value)) throw new Error('چیدمان انتخاب‌شده معتبر نیست.');
     if (key === 'money_display' && !['irr', 'irt'].includes(value)) throw new Error('واحد نمایش معتبر نیست.');
     if (key === 'tax_rate_bp' && (!/^\d+$/.test(value) || Number(value) < 0 || Number(value) > 10000)) throw new Error('نرخ مالیات باید بین صفر تا ۱۰۰ درصد باشد.');
     database.prepare(`INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)
