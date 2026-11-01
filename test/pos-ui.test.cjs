@@ -24,6 +24,6 @@ test('POS uses the constrained preload API and supports saved drafts and discoun
   assert.match(source, /stockMilli/);
   assert.match(source, /quantityMilli/);
   assert.match(source, /Number\.isSafeInteger\(milli\)/);
-  assert.match(source, /preview\\.warnings/);
+  assert.match(source, /preview\.warnings/);
   assert.doesNotMatch(source, /require\(['"](?:electron|better-sqlite3)['"]\)/);
 });
