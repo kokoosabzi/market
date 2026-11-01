@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { page: 'sale', theme: 'system', moneyDisplay: 'irr', taxRateBp: 0, products: [], categories: [] };
+const state = { page: 'sale', theme: 'system', moneyDisplay: 'irr', layoutMode: 'classic', taxRateBp: 0, products: [], categories: [] };
 const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'فروش و فاکتورها', inventory: 'وضعیت موجودی', returns: 'برگشت‌ها', reports: 'گزارش‌ها', backup: 'پشتیبان‌گیری', settings: 'تنظیمات' };
 const digitsFa = (value) => String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
 const formatMoney = (value) => {
@@ -15,6 +15,7 @@ function applyTheme(theme) {
   state.theme = theme; document.documentElement.dataset.theme = theme;
   document.querySelectorAll('[data-theme-choice]').forEach(button => button.classList.toggle('selected', button.dataset.themeChoice === theme));
 }
+function applyLayoutMode(value) { state.layoutMode = value; document.documentElement.dataset.layout = value; document.querySelectorAll('[data-layout-choice]').forEach(button => button.classList.toggle('selected', button.dataset.layoutChoice === value)); }
 function applyMoneyDisplay(value) {
   state.moneyDisplay = value;
   document.querySelectorAll('[data-money-choice]').forEach(button => button.classList.toggle('selected', button.dataset.moneyChoice === value));
@@ -315,6 +316,8 @@ document.addEventListener('click', async event => {
     }
     return;
   }
+  const layout = event.target.closest('[data-layout-choice]');
+  if (layout) { try { await window.marketApp.setSetting('layout_mode', layout.dataset.layoutChoice); applyLayoutMode(layout.dataset.layoutChoice); } catch(e) { toast(e.message, true); } return; }
   const theme = event.target.closest('[data-theme-choice]');
   if (theme) { try { await window.marketApp.setSetting('theme', theme.dataset.themeChoice); applyTheme(theme.dataset.themeChoice); } catch(e) { toast(e.message, true); } return; }
   const money = event.target.closest('[data-money-choice]');
@@ -381,7 +384,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') button.click(); }));
   try {
     const settings = await window.marketApp.getSettings();
-    applyTheme(settings.theme || 'system'); applyMoneyDisplay(settings.money_display || 'irr');
+    applyTheme(settings.theme || 'system'); applyMoneyDisplay(settings.money_display || 'irr'); applyLayoutMode(settings.layout_mode || 'classic');
     state.taxRateBp = Number(settings.tax_rate_bp || 0); $('tax-rate').value = (state.taxRateBp / 100).toFixed(2);
     await renderDashboard();
     await goTo('sale');
