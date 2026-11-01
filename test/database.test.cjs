@@ -130,7 +130,6 @@ test('rejects an empty migration history when application tables already exist',
   );
 });
 
-
 test('rejects empty migration history when unrelated application tables remain', (t) => {
   const f = fixture();
   const db = openDatabase(f.databasePath, f.migrationsDir);
@@ -158,6 +157,7 @@ test('migration 005 backfills product identity and locks finalized snapshots', (
   const f = fixture();
   const migrationsDir = path.join(f.directory, 'migrations');
   fs.mkdirSync(migrationsDir, { recursive: true });
+  fs.mkdirSync(path.dirname(f.databasePath), { recursive: true });
   const sourceDir = path.join(__dirname, '../electron/migrations');
   for (const name of fs.readdirSync(sourceDir).filter(name => /^00[1-4]_.*\.sql$/.test(name))) {
     fs.copyFileSync(path.join(sourceDir, name), path.join(migrationsDir, name));
