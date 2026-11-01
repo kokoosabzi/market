@@ -58,7 +58,27 @@
     const remove=event.target.closest('[data-pos-remove]');if(remove){state.items.splice(Number(remove.dataset.posRemove),1);renderCart();}
   });
   document.addEventListener('input',event=>{if(event.target.id==='pos-search')renderResults(event.target.value);});
-  $('pos-cart').addEventListener('change',event=>{const row=event.target.closest('[data-pos-row]');if(!row)return;const item=state.items[Number(row.dataset.posRow)];if(event.target.matches('[data-pos-qty]'))item.quantityMilli=Math.round(Number(event.target.value)*1000);if(event.target.matches('[data-pos-price]'))item.unitPriceIrr=Math.max(0,Math.trunc(Number(event.target.value)||0));if(event.target.matches('[data-pos-discount-type]')){item.discountType=event.target.value;item.discountValue=0;}if(event.target.matches('[data-pos-discount-value]'))item.discountValue=Math.max(0,Math.trunc(Number(event.target.value)||0));renderCart();});
+  $('pos-cart').addEventListener('change',event=>{
+    const row=event.target.closest('[data-pos-row]');if(!row)return;
+    const item=state.items[Number(row.dataset.posRow)];if(!item)return;
+    if(event.target.matches('[data-pos-qty]')){
+      const raw=Number(event.target.value), milli=raw*1000;
+      if(!Number.isFinite(raw)||!Number.isSafeInteger(milli)||milli<=0){showError('مقدار باید مثبت و حداکثر سه رقم اعشار داشته باشد.');renderCart();return;}
+      item.quantityMilli=milli;
+    }
+    if(event.target.matches('[data-pos-price]')){
+      const value=Number(event.target.value);
+      if(!Number.isSafeInteger(value)||value<0){showError('قیمت واحد باید عدد صحیح نامنفی به ریال باشد.');renderCart();return;}
+      item.unitPriceIrr=value;
+    }
+    if(event.target.matches('[data-pos-discount-type]')){item.discountType=event.target.value;item.discountValue=0;}
+    if(event.target.matches('[data-pos-discount-value]')){
+      const value=Number(event.target.value);
+      if(!Number.isSafeInteger(value)||value<0||(item.discountType==='percent'&&value>100)){showError(item.discountType==='percent'?'درصد تخفیف باید عدد صحیح بین صفر تا ۱۰۰ باشد.':'تخفیف باید عدد صحیح نامنفی به ریال باشد.');renderCart();return;}
+      item.discountValue=value;
+    }
+    $('pos-error').hidden=true;renderCart();
+  });
   $('pos-date').addEventListener('change',()=>{$('pos-date-jalali').textContent=jalali($('pos-date').value);});
   $('pos-save-draft').addEventListener('click',()=>submit(false));$('pos-finalize').addEventListener('click',()=>submit(true));
 })();
