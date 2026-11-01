@@ -21,5 +21,5 @@ test('POS uses the constrained preload API and supports saved drafts and discoun
   assert.match(source, /data-pos-discount-type/);
   assert.match(source, /data-pos-discount-value/);
   assert.match(source, /data-pos-edit/);
-  assert.doesNotMatch(source, /require\\(['"](?:electron|better-sqlite3)['"]\\)/);
+  assert.doesNotMatch(source, /require\(['"](?:electron|better-sqlite3)['"]\)/);
 });
