@@ -59,8 +59,19 @@
         <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>فروشنده (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="purchase-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
       </section>
       <section id="sale-page" class="page" hidden>
-        <div class="section-heading"><div><h2>فروش و فاکتورها</h2><p>ثبت فروش، صدور فاکتور، مشاهده و چاپ مجدد</p></div><button class="primary-button" data-new-document="sale">＋ فروش جدید</button></div>
-        <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>خریدار (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="sale-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+        <div class="sales-workspace-intro">
+          <div><span class="sales-kicker">مرکز عملیات فروشگاه</span><h2>فروش را از همین‌جا شروع کنید</h2><p>ثبت فروش، مدیریت فاکتورهای صادرشده و پیگیری برگشت از فروش در یک فضای یکپارچه.</p></div>
+          <button class="primary-button sales-start-button" data-new-document="sale" type="button"><span aria-hidden="true">＋</span> شروع فروش جدید</button>
+        </div>
+        <div class="sales-shortcuts" aria-label="دسترسی سریع فروش">
+          <button class="sales-shortcut active" type="button" data-sales-scroll="sales-invoices"><span class="sales-shortcut-icon">▤</span><span><strong>فاکتورهای فروش</strong><small>مشاهده اسناد و ادامه پیش‌نویس‌ها</small></span><span class="sales-shortcut-arrow">←</span></button>
+          <button class="sales-shortcut" type="button" data-go="returns"><span class="sales-shortcut-icon">↩</span><span><strong>برگشت از فروش</strong><small>ثبت و پیگیری برگشت‌های مرتبط</small></span><span class="sales-shortcut-arrow">←</span></button>
+          <button class="sales-shortcut" type="button" data-go="products"><span class="sales-shortcut-icon">▦</span><span><strong>مدیریت کالاها</strong><small>بررسی کالاها و قیمت‌های فروش</small></span><span class="sales-shortcut-arrow">←</span></button>
+        </div>
+        <div id="sales-invoices" class="sales-invoices-section">
+          <div class="section-heading"><div><h2>فاکتورها و اسناد فروش</h2><p>پیش‌نویس‌ها را ادامه دهید؛ اسناد قطعی را برای مراحل بعدی فاکتور و چاپ آماده نگه دارید.</p></div><span class="subtle-pill">فهرست فروش</span></div>
+          <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>خریدار (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="sale-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+        </div>
       </section>
       <section id="inventory-page" class="page" hidden>
         <div class="section-heading"><div><h2>وضعیت موجودی</h2><p>موجودی از گردش اسناد نهایی‌شده محاسبه می‌شود؛ مقدار منفی مجاز است و باید بررسی شود.</p></div><button class="secondary-button" id="refresh-inventory">به‌روزرسانی</button></div>
