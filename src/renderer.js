@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
-const state = { page: 'dashboard', theme: 'system', moneyDisplay: 'irr', taxRateBp: 0, products: [], categories: [] };
-const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'اسناد فروش', inventory: 'وضعیت موجودی', returns: 'برگشت‌ها', reports: 'گزارش‌ها', backup: 'پشتیبان‌گیری', settings: 'تنظیمات' };
+const state = { page: 'sale', theme: 'system', moneyDisplay: 'irr', taxRateBp: 0, products: [], categories: [] };
+const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'فروش و فاکتورها', inventory: 'وضعیت موجودی', returns: 'برگشت‌ها', reports: 'گزارش‌ها', backup: 'پشتیبان‌گیری', settings: 'تنظیمات' };
 const digitsFa = (value) => String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
 const formatMoney = (value) => {
   if (value === null || value === undefined) return '—';
@@ -378,5 +378,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     applyTheme(settings.theme || 'system'); applyMoneyDisplay(settings.money_display || 'irr');
     state.taxRateBp = Number(settings.tax_rate_bp || 0); $('tax-rate').value = (state.taxRateBp / 100).toFixed(2);
     await renderDashboard();
+    await goTo('sale');
   } catch (error) { $('database-status').textContent = 'خطا'; toast('راه‌اندازی رابط ناموفق بود: ' + (error.message || ''), true); }
 });
