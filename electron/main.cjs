@@ -112,7 +112,7 @@ function registerIpcHandlers() {
     if (!Array.isArray(items) || items.length < 1 || items.length > 200) throw new Error('سند باید حداقل یک قلم و حداکثر ۲۰۰ قلم داشته باشد.');
     return items.map((item, index) => {
       const productId = requireId(item.productId);
-      const product = database.prepare('SELECT id, unit, purchase_price_irr, sale_price_irr, is_active FROM products WHERE id=?').get(productId);
+      const product = database.prepare('SELECT id, code, name, unit, purchase_price_irr, sale_price_irr, is_active FROM products WHERE id=?').get(productId);
       if (!product || !product.is_active) throw new Error('کالای ردیف ' + (index + 1) + ' وجود ندارد یا غیرفعال است.');
       const quantityMilli = Number(item.quantityMilli);
       if (!Number.isSafeInteger(quantityMilli) || quantityMilli <= 0) throw new Error('مقدار ردیف ' + (index + 1) + ' باید مثبت باشد.');
@@ -125,7 +125,7 @@ function registerIpcHandlers() {
       let amounts;
       try { amounts = calculateLine({ quantityMilli, unitPriceIrr: unitPrice, discountType, discountValue, taxRateBp: taxRate }); }
       catch (error) { throw new Error('اطلاعات مبلغ ردیف ' + (index + 1) + ' معتبر نیست: ' + error.message); }
-      return { product, productId, quantityMilli, unitPrice, discountType, discountValue, taxRate, ...amounts };
+      return { product, productId, productCodeSnapshot: product.code, productNameSnapshot: product.name, unitSnapshot: product.unit, quantityMilli, unitPrice, discountType, discountValue, taxRate, ...amounts };
     });
   }
   function documentTotals(items) {
@@ -151,8 +151,10 @@ function registerIpcHandlers() {
       discount_irr AS discountIrr, tax_irr AS taxIrr, total_irr AS totalIrr, void_reason AS voidReason
       FROM documents WHERE id=?`).get(id);
     if (!doc) throw new Error('سند پیدا نشد.');
-    doc.items = database.prepare(`SELECT i.id, i.product_id AS productId, p.code AS productCode, p.name AS productName,
-      p.unit, i.quantity_milli AS quantityMilli, i.unit_price_irr AS unitPriceIrr,
+    doc.items = database.prepare(`SELECT i.id, i.product_id AS productId,
+      COALESCE(i.product_code_snapshot, p.code) AS productCode,
+      COALESCE(i.product_name_snapshot, p.name) AS productName,
+      COALESCE(i.unit_snapshot, p.unit) AS unit, i.quantity_milli AS quantityMilli, i.unit_price_irr AS unitPriceIrr,
       i.gross_irr AS grossIrr, i.discount_type AS discountType, i.discount_value AS discountValue, i.tax_rate_bp AS taxRateBp,
       i.discount_irr AS discountIrr, i.tax_irr AS taxIrr, i.total_irr AS totalIrr,
       i.unit_cost_snapshot_irr AS unitCostSnapshotIrr, i.cost_status AS costStatus
@@ -185,9 +187,9 @@ function registerIpcHandlers() {
         id = result.lastInsertRowid;
         database.prepare('UPDATE documents SET document_number=? WHERE id=?').run('DRAFT-' + id, id);
       }
-      const insert = database.prepare(`INSERT INTO document_items(document_id,product_id,quantity_milli,unit_price_irr,discount_type,discount_value,tax_rate_bp,gross_irr,discount_irr,tax_irr,total_irr)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?)`);
-      for (const item of items) insert.run(id, item.productId, item.quantityMilli, item.unitPrice, item.discountType, item.discountValue, item.taxRate, item.gross, item.discount, item.tax, item.total);
+      const insert = database.prepare(`INSERT INTO document_items(document_id,product_id,product_code_snapshot,product_name_snapshot,unit_snapshot,quantity_milli,unit_price_irr,discount_type,discount_value,tax_rate_bp,gross_irr,discount_irr,tax_irr,total_irr)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      for (const item of items) insert.run(id, item.productId, item.productCodeSnapshot, item.productNameSnapshot, item.unitSnapshot, item.quantityMilli, item.unitPrice, item.discountType, item.discountValue, item.taxRate, item.gross, item.discount, item.tax, item.total);
       return { id, status: 'draft', ...totals };
     })();
   });
@@ -239,7 +241,8 @@ function registerIpcHandlers() {
           addMovement.run(item.product_id, id, item.id, -item.quantity_milli, 'sale');
         }
       }
-      database.prepare("UPDATE documents SET status='finalized', finalized_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=?").run(id);
+      const finalized = database.prepare("UPDATE documents SET status='finalized', finalized_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=? AND status='draft'").run(id);
+      if (finalized.changes !== 1) throw new Error('وضعیت سند تغییر کرده است؛ برای جلوگیری از ثبت تکراری، عملیات متوقف شد.');
       return { id, documentNumber: number, status: 'finalized', warnings };
     })();
   });
