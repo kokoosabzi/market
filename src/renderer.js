@@ -61,7 +61,7 @@ async function renderProducts() {
       <td class="muted-cell">${escapeHtml(p.categoryName || '—')}</td><td>${escapeHtml(p.unit)}</td>
       <td>${formatMoney(p.purchasePriceIrr)}</td><td>${formatMoney(p.salePriceIrr)}</td>
       <td><span class="status-pill ${p.isActive ? '' : 'inactive'}">${p.isActive ? 'فعال' : 'غیرفعال'}</span></td>
-      <td><div class="row-actions"><button class="small-action" data-edit-product="${p.id}">ویرایش</button><button class="small-action" data-toggle-product="${p.id}" data-active="${p.isActive ? '1' : '0}">${p.isActive ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button></div></td>
+      <td><div class="row-actions"><button class="small-action" data-edit-product="${p.id}">ویرایش</button><button class="small-action" data-toggle-product="${p.id}" data-active="${p.isActive ? '1' : '0'}">${p.isActive ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button></div></td>
     </tr>`).join('');
   }
   $('products-summary').textContent = digitsFa(rows.length) + ' کالا در این فهرست نمایش داده می‌شود (حداکثر ۵۰۰ ردیف).';
