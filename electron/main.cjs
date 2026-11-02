@@ -620,6 +620,16 @@ function runSmokeCheck() {
           throw new Error('Draft save failed or returned unexpected totals');
         }
 
+        let draftInvoiceRejected = false;
+        try { await api.printInvoice(draft.id, 'a4'); }
+        catch (_) { draftInvoiceRejected = true; }
+        if (!draftInvoiceRejected) throw new Error('Invoice IPC accepted a draft document');
+
+        let draftPdfRejected = false;
+        try { await api.saveInvoicePdf(draft.id, 'a4'); }
+        catch (_) { draftPdfRejected = true; }
+        if (!draftPdfRejected) throw new Error('PDF IPC accepted a draft document');
+
         let saved = await api.getDocument(draft.id);
         if (saved.status !== 'draft' || saved.items?.length !== 1 ||
             saved.items[0].productName !== originalName || saved.items[0].quantityMilli !== 2000) {
@@ -648,6 +658,16 @@ function runSmokeCheck() {
         if (reopened.status !== 'finalized' || reopened.items[0].productName !== originalName) {
           throw new Error('Finalized document history or snapshot check failed');
         }
+
+        let invalidPrintFormatRejected = false;
+        try { await api.printInvoice(draft.id, 'unsupported'); }
+        catch (_) { invalidPrintFormatRejected = true; }
+        if (!invalidPrintFormatRejected) throw new Error('Invoice IPC accepted an unsupported print format');
+
+        let invalidPdfFormatRejected = false;
+        try { await api.saveInvoicePdf(draft.id, 'unsupported'); }
+        catch (_) { invalidPdfFormatRejected = true; }
+        if (!invalidPdfFormatRejected) throw new Error('Invoice IPC accepted an unsupported PDF format');
 
         const inventory = await api.listInventory();
         const stock = inventory.find(row => row.id === product.id);
