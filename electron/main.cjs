@@ -5,6 +5,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { openDatabase } = require('./database.cjs');
 const { roundRatio, calculateLine, calculateProfit } = require('./domain.cjs');
+const { renderInvoice } = require('./invoice.cjs');
 
 if (process.env.MARKET_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.MARKET_USER_DATA_DIR));
 
@@ -161,6 +162,58 @@ function registerIpcHandlers() {
       FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=? ORDER BY i.id`).all(id);
     return doc;
   });
+  function loadFinalizedSaleForInvoice(id) {
+    const document = database.prepare(`SELECT id, document_type AS type, document_number AS documentNumber,
+      document_date AS documentDate, status, party_name AS partyName, notes, subtotal_irr AS subtotalIrr,
+      discount_irr AS discountIrr, tax_irr AS taxIrr, total_irr AS totalIrr, void_reason AS voidReason
+      FROM documents WHERE id=?`).get(requireId(id));
+    if (!document || document.type !== 'sale' || !['finalized', 'voided'].includes(document.status)) {
+      throw new Error('فقط فاکتور فروش قطعی یا باطل‌شده قابل چاپ است.');
+    }
+    document.items = database.prepare(`SELECT i.id, COALESCE(i.product_code_snapshot,p.code) AS productCode,
+      COALESCE(i.product_name_snapshot,p.name) AS productName, COALESCE(i.unit_snapshot,p.unit) AS unit,
+      i.quantity_milli AS quantityMilli, i.unit_price_irr AS unitPriceIrr, i.total_irr AS totalIrr
+      FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=? ORDER BY i.id`).all(document.id);
+    return document;
+  }
+  function invoicePrintWindow(html) {
+    const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
+    return win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)).then(() => win);
+  }
+  ipcMain.handle('invoice:print', async (_event, payload = {}) => {
+    const format = payload.format;
+    const document = loadFinalizedSaleForInvoice(payload.id);
+    const html = renderInvoice(document, format);
+    const win = await invoicePrintWindow(html);
+    try {
+      const pageSize = format === 'thermal80' ? { width: 80000, height: 2000000 } : 'A4';
+      return await new Promise((resolve, reject) => win.webContents.print({ silent: false, printBackground: true, pageSize }, (success, failureReason) => {
+        if (success) resolve({ printed: true });
+        else if (failureReason === 'Print job canceled') resolve({ printed: false, canceled: true });
+        else reject(new Error(failureReason || 'چاپ فاکتور ناموفق بود.'));
+      }));
+    } finally { win.destroy(); }
+  });
+  ipcMain.handle('invoice:save-pdf', async (_event, payload = {}) => {
+    const format = payload.format;
+    const document = loadFinalizedSaleForInvoice(payload.id);
+    const html = renderInvoice(document, format);
+    const extension = '.pdf';
+    const choice = await dialog.showSaveDialog(mainWindow, {
+      title: 'ذخیرهٔ PDF فاکتور',
+      defaultPath: document.documentNumber + (format === 'thermal80' ? '-80mm' : '-A4') + extension,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+    if (choice.canceled || !choice.filePath) return { canceled: true };
+    const win = await invoicePrintWindow(html);
+    try {
+      const pageSize = format === 'thermal80' ? { width: 80000, height: 2000000 } : 'A4';
+      const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize });
+      fs.writeFileSync(choice.filePath, pdf);
+      return { canceled: false, filePath: choice.filePath };
+    } finally { win.destroy(); }
+  });
+
   ipcMain.handle('documents:save-draft', (_event, payload = {}) => {
     const type = payload.type;
     if (!['purchase', 'sale'].includes(type)) throw new Error('نوع سند معتبر نیست.');
