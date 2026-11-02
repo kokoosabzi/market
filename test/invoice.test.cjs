@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { escapeHtml, renderInvoice } = require('../electron/invoice.cjs');
+const { escapeHtml, renderInvoice, thermalPageSize } = require('../electron/invoice.cjs');
 
 const fixture = {
   id: 7, type: 'sale', documentNumber: 'SAL-00000007', documentDate: '2026-11-02',
@@ -38,4 +38,17 @@ test('voided invoice is visibly marked and unsupported formats are rejected', ()
 
 test('escapeHtml encodes all HTML-sensitive characters', () => {
   assert.equal(escapeHtml(`&<>"'`), '&amp;&lt;&gt;&quot;&#39;');
+});
+
+
+test('thermal page height follows measured content instead of a fixed two-metre sheet', () => {
+  const short = thermalPageSize(420);
+  const long = thermalPageSize(1680);
+  assert.equal(short.width, 80000);
+  assert.equal(long.width, 80000);
+  assert.ok(short.height > 100000);
+  assert.ok(long.height > short.height);
+  assert.ok(long.height < 1000000);
+  assert.throws(() => thermalPageSize(0), /ارتفاع فیش/);
+  assert.throws(() => thermalPageSize(Number.NaN), /ارتفاع فیش/);
 });
