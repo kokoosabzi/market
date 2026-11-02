@@ -7,6 +7,12 @@ function faNumber(value, digits = 0) {
   return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(Number(value) || 0);
 }
 function money(value) { return faNumber(value) + ' ریال'; }
+function thermalPageSize(heightPx) {
+  const px = Number(heightPx);
+  if (!Number.isFinite(px) || px < 1) throw new Error('ارتفاع فیش معتبر نیست.');
+  const height = Math.ceil((px + 32) * 25400 / 96);
+  return { width: 80000, height: Math.max(100000, height) };
+}
 function renderInvoice(doc, format = 'a4') {
   if (!doc || doc.type !== 'sale' || !Array.isArray(doc.items) || !doc.items.length) throw new Error('اطلاعات فاکتور فروش معتبر نیست.');
   if (!['a4', 'thermal80'].includes(format)) throw new Error('قالب فاکتور معتبر نیست.');
@@ -43,4 +49,4 @@ function renderInvoice(doc, format = 'a4') {
     ${notes}<footer class="foot">با سپاس از خرید شما · Market</footer>
   </body></html>`;
 }
-module.exports = { escapeHtml, renderInvoice };
+module.exports = { escapeHtml, renderInvoice, thermalPageSize };
