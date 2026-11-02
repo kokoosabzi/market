@@ -150,6 +150,18 @@
       <div class="modal-actions"><button type="button" class="secondary-button" id="cancel-document">انصراف</button><button type="button" class="secondary-button" id="save-document-draft">ذخیرهٔ پیش‌نویس</button><button type="submit" class="primary-button" id="finalize-document">ثبت قطعی</button></div>
     </form>
   </dialog>
+  <dialog id="invoice-dialog" class="modal invoice-modal">
+    <div class="modal-form">
+      <div class="modal-heading"><div><span class="eyebrow">فاکتور فروش</span><h2>جزئیات فاکتور</h2></div><button id="close-invoice-dialog" class="icon-button" type="button" aria-label="بستن">×</button></div>
+      <div id="invoice-detail-content"></div>
+      <div class="invoice-actions">
+        <label>قالب خروجی<select id="invoice-format"><option value="a4">A4</option><option value="thermal80">حرارتی ۸۰ میلی‌متر</option></select></label>
+        <button id="invoice-print" class="secondary-button" type="button">چاپ / چاپ مجدد</button>
+        <button id="invoice-save-pdf" class="primary-button" type="button">ذخیره PDF</button>
+      </div>
+      <p class="muted-cell">چاپ و بازچاپ فقط از اطلاعات سند ذخیره‌شده استفاده می‌کند و موجودی را تغییر نمی‌دهد.</p>
+    </div>
+  </dialog>
   <dialog id="return-dialog" class="modal">
     <form id="return-form" class="modal-form">
       <div class="modal-heading"><div><span class="eyebrow">سند اصلاحی</span><h2>ثبت برگشت</h2></div><button id="close-return-dialog" class="icon-button" type="button" aria-label="بستن">×</button></div>
