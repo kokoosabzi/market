@@ -45,3 +45,31 @@ test('gross profit labels estimated costs and handles fully returned lines', () 
   ]);
   assert.deepEqual(returned, { revenueIrr: 0, costIrr: 0, profitIrr: 0, costStatus: 'known' });
 });
+
+
+test('combined percentage discount and tax match the POS calculation order', () => {
+  const line = calculateLine({
+    quantityMilli: 3000,
+    unitPriceIrr: 1001,
+    discountType: 'percent',
+    discountValue: 15,
+    taxRateBp: 900
+  });
+  assert.deepEqual(line, {
+    gross: 3003,
+    discount: 450,
+    tax: 230,
+    total: 2783
+  });
+});
+
+test('fixed discount is applied before tax and cannot make a line negative', () => {
+  const line = calculateLine({
+    quantityMilli: 2500,
+    unitPriceIrr: 400,
+    discountType: 'fixed',
+    discountValue: 5000,
+    taxRateBp: 1000
+  });
+  assert.deepEqual(line, { gross: 1000, discount: 1000, tax: 0, total: 0 });
+});

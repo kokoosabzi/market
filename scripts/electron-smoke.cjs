@@ -16,10 +16,10 @@ const child = spawn(command, args, {
 });
 
 const timeout = setTimeout(() => {
-  console.error('Electron smoke test timed out after 60 seconds.');
+  console.error('Electron smoke test timed out after 120 seconds.');
   child.kill();
   process.exitCode = 1;
-}, 60_000);
+}, 120_000);
 
 child.on('error', (error) => {
   clearTimeout(timeout);

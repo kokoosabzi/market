@@ -12,7 +12,7 @@ function fixture() {
 }
 test('return rows link to original document lines and retain status history', t => {
   const f = fixture(); t.after(() => { f.db.close(); fs.rmSync(f.dir, { recursive: true, force: true }); });
-  assert.equal(f.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 4);
+  assert.equal(f.db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get().version, 5);
   const productId = f.db.prepare('INSERT INTO products(code,name,sale_price_irr) VALUES(?,?,?)').run('R-1','کالای برگشتی',1000).lastInsertRowid;
   const documentId = f.db.prepare("INSERT INTO documents(document_type,document_number,document_date,status,finalized_at) VALUES('sale','SAL-00000001','2026-10-29','finalized','2026-10-29T12:00:00Z')").run().lastInsertRowid;
   const itemId = f.db.prepare("INSERT INTO document_items(document_id,product_id,quantity_milli,unit_price_irr,gross_irr,discount_irr,tax_irr,total_irr) VALUES(?,?,3000,1000,3000,0,0,3000)").run(documentId,productId).lastInsertRowid;

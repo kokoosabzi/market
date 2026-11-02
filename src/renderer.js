@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
-const state = { page: 'dashboard', theme: 'system', moneyDisplay: 'irr', taxRateBp: 0, products: [], categories: [] };
-const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'اسناد فروش', inventory: 'وضعیت موجودی', returns: 'برگشت‌ها', reports: 'گزارش‌ها', backup: 'پشتیبان‌گیری', settings: 'تنظیمات' };
+const state = { page: 'sale', theme: 'system', moneyDisplay: 'irr', layoutMode: 'classic', taxRateBp: 0, products: [], categories: [], invoiceId: null };
+const pageTitles = { dashboard: 'نمای کلی', products: 'مدیریت کالاها', categories: 'دسته‌بندی‌ها', purchase: 'اسناد خرید', sale: 'فروش و فاکتورها', inventory: 'وضعیت موجودی', returns: 'برگشت‌ها', reports: 'گزارش‌ها', backup: 'پشتیبان‌گیری', settings: 'تنظیمات' };
 const digitsFa = (value) => String(value).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
 const formatMoney = (value) => {
   if (value === null || value === undefined) return '—';
@@ -15,6 +15,7 @@ function applyTheme(theme) {
   state.theme = theme; document.documentElement.dataset.theme = theme;
   document.querySelectorAll('[data-theme-choice]').forEach(button => button.classList.toggle('selected', button.dataset.themeChoice === theme));
 }
+function applyLayoutMode(value) { state.layoutMode = value; document.documentElement.dataset.layout = value; document.querySelectorAll('[data-layout-choice]').forEach(button => button.classList.toggle('selected', button.dataset.layoutChoice === value)); }
 function applyMoneyDisplay(value) {
   state.moneyDisplay = value;
   document.querySelectorAll('[data-money-choice]').forEach(button => button.classList.toggle('selected', button.dataset.moneyChoice === value));
@@ -23,7 +24,11 @@ async function goTo(page) {
   if (!pageTitles[page]) return;
   state.page = page;
   document.querySelectorAll('.page').forEach(section => { section.hidden = section.id !== page + '-page'; });
-  document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === page));
+  document.querySelectorAll('.nav-item').forEach(button => {
+    const active = button.dataset.page === page;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page'); else button.removeAttribute('aria-current');
+  });
   $('page-title').textContent = pageTitles[page]; $('breadcrumb').textContent = 'فضای کاری / ' + pageTitles[page];
   if (page === 'products') await renderProducts();
   if (page === 'categories') await renderCategories();
@@ -61,7 +66,7 @@ async function renderProducts() {
       <td class="muted-cell">${escapeHtml(p.categoryName || '—')}</td><td>${escapeHtml(p.unit)}</td>
       <td>${formatMoney(p.purchasePriceIrr)}</td><td>${formatMoney(p.salePriceIrr)}</td>
       <td><span class="status-pill ${p.isActive ? '' : 'inactive'}">${p.isActive ? 'فعال' : 'غیرفعال'}</span></td>
-      <td><div class="row-actions"><button class="small-action" data-edit-product="${p.id}">ویرایش</button><button class="small-action" data-toggle-product="${p.id}" data-active="${p.isActive ? '1' : '0}">${p.isActive ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button></div></td>
+      <td><div class="row-actions"><button class="small-action" data-edit-product="${p.id}">ویرایش</button><button class="small-action" data-toggle-product="${p.id}" data-active="${p.isActive ? '1' : '0'}">${p.isActive ? 'غیرفعال‌سازی' : 'فعال‌سازی'}</button></div></td>
     </tr>`).join('');
   }
   $('products-summary').textContent = digitsFa(rows.length) + ' کالا در این فهرست نمایش داده می‌شود (حداکثر ۵۰۰ ردیف).';
@@ -142,10 +147,24 @@ async function renderDocuments(type) {
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">هنوز سندی ثبت نشده است. برای شروع، سند جدید بسازید.</td></tr>'; return; }
   tbody.innerHTML = rows.map(doc => {
     const status = doc.status === 'finalized' ? 'قطعی' : doc.status === 'voided' ? 'باطل‌شده' : 'پیش‌نویس';
-    const actions = doc.status === 'draft' ? '<button class="small-action" data-edit-document="' + doc.id + '" data-type="' + type + '">ادامه / ثبت</button>' :
-      doc.status === 'finalized' ? '<button class="small-action" data-void-document="' + doc.id + '" data-type="' + type + '">ابطال با علت</button>' : '—';
+    const actions = doc.status === 'draft' ? (type === 'sale' ? '<button class="small-action" data-pos-edit="' + doc.id + '">ادامه در صندوق</button>' : '<button class="small-action" data-edit-document="' + doc.id + '" data-type="' + type + '">ادامه / ثبت</button>') :
+      doc.status === 'finalized' ? '<button class="small-action" data-invoice-view="' + doc.id + '">مشاهده فاکتور</button><button class="small-action" data-void-document="' + doc.id + '" data-type="' + type + '">ابطال با علت</button>' : doc.status === 'voided' && type === 'sale' ? '<button class="small-action" data-invoice-view="' + doc.id + '">مشاهده نسخهٔ باطل‌شده</button>' : '—';
     return '<tr><td><span class="product-code">' + escapeHtml(doc.documentNumber) + '</span></td><td>' + escapeHtml(doc.documentDate) + '<small class="date-jalali">' + escapeHtml(jalaliPreview(doc.documentDate)) + '</small></td><td>' + escapeHtml(doc.partyName || '—') + '</td><td>' + digitsFa(doc.itemCount) + '</td><td>' + formatMoney(doc.totalIrr) + '</td><td><span class="status-pill ' + (doc.status === 'finalized' ? '' : 'inactive') + '">' + status + '</span></td><td>' + actions + '</td></tr>';
   }).join('');
+}
+async function openInvoiceDetails(id) {
+  const doc = await window.marketApp.getDocument(Number(id));
+  if (doc.type !== 'sale' || !['finalized', 'voided'].includes(doc.status)) throw new Error('فقط فاکتور فروش قطعی یا باطل‌شده قابل مشاهده است.');
+  state.invoiceId = doc.id;
+  const status = doc.status === 'voided' ? 'باطل‌شده' : 'قطعی';
+  const rows = doc.items.map((item, index) => '<tr><td>' + digitsFa(index + 1) + '</td><td>' + escapeHtml(item.productCode) + ' · ' + escapeHtml(item.productName) + '<small>' + escapeHtml(item.unit) + '</small></td><td>' + quantityLabel(item.quantityMilli) + '</td><td>' + formatMoney(item.unitPriceIrr) + '</td><td>' + formatMoney(item.totalIrr) + '</td></tr>').join('');
+  $('invoice-detail-content').innerHTML = '<div class="invoice-detail-head"><strong>' + escapeHtml(doc.documentNumber) + '</strong><span class="status-pill ' + (doc.status === 'finalized' ? '' : 'inactive') + '">' + status + '</span></div>' +
+    '<p>تاریخ: ' + escapeHtml(doc.documentDate) + ' · خریدار: ' + escapeHtml(doc.partyName || 'مشتری حضوری') + '</p>' +
+    (doc.status === 'voided' ? '<p class="form-error">علت ابطال: ' + escapeHtml(doc.voidReason || 'ثبت نشده') + '</p>' : '') +
+    '<div class="table-wrap"><table><thead><tr><th>#</th><th>کالا</th><th>مقدار</th><th>قیمت واحد</th><th>جمع ردیف</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div class="invoice-detail-totals"><p>جمع کالاها: <b>' + formatMoney(doc.subtotalIrr) + '</b></p><p>تخفیف: <b>' + formatMoney(doc.discountIrr) + '</b></p><p>مالیات: <b>' + formatMoney(doc.taxIrr) + '</b></p><p>مبلغ نهایی: <b>' + formatMoney(doc.totalIrr) + '</b></p></div>' +
+    (doc.notes ? '<p>یادداشت: ' + escapeHtml(doc.notes) + '</p>' : '');
+  $('invoice-dialog').showModal();
 }
 async function renderInventory() {
   const rows = await window.marketApp.listInventory();
@@ -272,6 +291,8 @@ async function saveProduct(event) {
 document.addEventListener('click', async event => {
   const nav = event.target.closest('[data-page]'); if (nav) { await goTo(nav.dataset.page); return; }
   const go = event.target.closest('[data-go]'); if (go) { await goTo(go.dataset.go); return; }
+  const salesScroll = event.target.closest('[data-sales-scroll]');
+  if (salesScroll) { document.getElementById(salesScroll.dataset.salesScroll)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
   const edit = event.target.closest('[data-edit-product]');
   if (edit) { const p = state.products.find(item => item.id === Number(edit.dataset.editProduct)); if (p) openProduct(p); return; }
   const toggle = event.target.closest('[data-toggle-product]');
@@ -298,6 +319,8 @@ document.addEventListener('click', async event => {
   if (pdfButton) { await exportReport(pdfButton.dataset.exportPdf, 'pdf'); return; }
   const newDoc = event.target.closest('[data-new-document]');
   if (newDoc) { try { await openDocument(newDoc.dataset.newDocument); } catch(e) { toast(e.message, true); } return; }
+  const invoiceView = event.target.closest('[data-invoice-view]');
+  if (invoiceView) { try { await openInvoiceDetails(invoiceView.dataset.invoiceView); } catch(e) { toast(e.message || 'نمایش فاکتور ناموفق بود.', true); } return; }
   const editDoc = event.target.closest('[data-edit-document]');
   if (editDoc) { try { const doc = await window.marketApp.getDocument(Number(editDoc.dataset.editDocument)); await openDocument(editDoc.dataset.type, doc); } catch(e) { toast(e.message, true); } return; }
   const voidDoc = event.target.closest('[data-void-document]');
@@ -309,10 +332,27 @@ document.addEventListener('click', async event => {
     }
     return;
   }
+  const layout = event.target.closest('[data-layout-choice]');
+  if (layout) { try { await window.marketApp.setSetting('layout_mode', layout.dataset.layoutChoice); applyLayoutMode(layout.dataset.layoutChoice); } catch(e) { toast(e.message, true); } return; }
   const theme = event.target.closest('[data-theme-choice]');
   if (theme) { try { await window.marketApp.setSetting('theme', theme.dataset.themeChoice); applyTheme(theme.dataset.themeChoice); } catch(e) { toast(e.message, true); } return; }
   const money = event.target.closest('[data-money-choice]');
   if (money) { try { await window.marketApp.setSetting('money_display', money.dataset.moneyChoice); applyMoneyDisplay(money.dataset.moneyChoice); if (state.page === 'products') await renderProducts(); } catch(e) { toast(e.message, true); } return; }
+});
+$('close-invoice-dialog').addEventListener('click', () => $('invoice-dialog').close());
+$('invoice-print').addEventListener('click', async () => {
+  if (!state.invoiceId) return;
+  const button = $('invoice-print'); button.disabled = true;
+  try { const result = await window.marketApp.printInvoice(state.invoiceId, $('invoice-format').value); toast(result.canceled ? 'چاپ لغو شد.' : 'درخواست چاپ ارسال شد.'); }
+  catch(e) { toast(e.message || 'چاپ فاکتور ناموفق بود.', true); }
+  finally { button.disabled = false; }
+});
+$('invoice-save-pdf').addEventListener('click', async () => {
+  if (!state.invoiceId) return;
+  const button = $('invoice-save-pdf'); button.disabled = true;
+  try { const result = await window.marketApp.saveInvoicePdf(state.invoiceId, $('invoice-format').value); if (!result.canceled) toast('فاکتور به صورت PDF ذخیره شد.'); }
+  catch(e) { toast(e.message || 'ذخیره PDF ناموفق بود.', true); }
+  finally { button.disabled = false; }
 });
 $('new-product').addEventListener('click', () => openProduct());
 $('product-form').addEventListener('submit', saveProduct);
@@ -375,8 +415,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') button.click(); }));
   try {
     const settings = await window.marketApp.getSettings();
-    applyTheme(settings.theme || 'system'); applyMoneyDisplay(settings.money_display || 'irr');
+    applyTheme(settings.theme || 'system'); applyMoneyDisplay(settings.money_display || 'irr'); applyLayoutMode(settings.layout_mode || 'classic');
     state.taxRateBp = Number(settings.tax_rate_bp || 0); $('tax-rate').value = (state.taxRateBp / 100).toFixed(2);
     await renderDashboard();
+    await goTo('sale');
   } catch (error) { $('database-status').textContent = 'خطا'; toast('راه‌اندازی رابط ناموفق بود: ' + (error.message || ''), true); }
 });

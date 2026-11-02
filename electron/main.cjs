@@ -5,6 +5,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { openDatabase } = require('./database.cjs');
 const { roundRatio, calculateLine, calculateProfit } = require('./domain.cjs');
+const { renderInvoice, thermalPageSize } = require('./invoice.cjs');
 
 if (process.env.MARKET_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.MARKET_USER_DATA_DIR));
 
@@ -41,8 +42,9 @@ function registerIpcHandlers() {
   ipcMain.handle('market:set-setting', (_event, payload = {}) => {
     const key = requireText(payload.key, 'کلید تنظیمات', 80);
     const value = requireText(payload.value, 'مقدار تنظیمات', 80);
-    if (!['theme', 'money_display', 'tax_rate_bp'].includes(key)) throw new Error('این تنظیم قابل تغییر نیست.');
+    if (!['theme', 'money_display', 'tax_rate_bp', 'layout_mode'].includes(key)) throw new Error('این تنظیم قابل تغییر نیست.');
     if (key === 'theme' && !['light', 'dark', 'system'].includes(value)) throw new Error('پوسته انتخاب‌شده معتبر نیست.');
+    if (key === 'layout_mode' && !['classic', 'tiles'].includes(value)) throw new Error('چیدمان انتخاب‌شده معتبر نیست.');
     if (key === 'money_display' && !['irr', 'irt'].includes(value)) throw new Error('واحد نمایش معتبر نیست.');
     if (key === 'tax_rate_bp' && (!/^\d+$/.test(value) || Number(value) < 0 || Number(value) > 10000)) throw new Error('نرخ مالیات باید بین صفر تا ۱۰۰ درصد باشد.');
     database.prepare(`INSERT INTO app_settings (setting_key, setting_value) VALUES (?, ?)
@@ -111,7 +113,7 @@ function registerIpcHandlers() {
     if (!Array.isArray(items) || items.length < 1 || items.length > 200) throw new Error('سند باید حداقل یک قلم و حداکثر ۲۰۰ قلم داشته باشد.');
     return items.map((item, index) => {
       const productId = requireId(item.productId);
-      const product = database.prepare('SELECT id, unit, purchase_price_irr, sale_price_irr, is_active FROM products WHERE id=?').get(productId);
+      const product = database.prepare('SELECT id, code, name, unit, purchase_price_irr, sale_price_irr, is_active FROM products WHERE id=?').get(productId);
       if (!product || !product.is_active) throw new Error('کالای ردیف ' + (index + 1) + ' وجود ندارد یا غیرفعال است.');
       const quantityMilli = Number(item.quantityMilli);
       if (!Number.isSafeInteger(quantityMilli) || quantityMilli <= 0) throw new Error('مقدار ردیف ' + (index + 1) + ' باید مثبت باشد.');
@@ -124,7 +126,7 @@ function registerIpcHandlers() {
       let amounts;
       try { amounts = calculateLine({ quantityMilli, unitPriceIrr: unitPrice, discountType, discountValue, taxRateBp: taxRate }); }
       catch (error) { throw new Error('اطلاعات مبلغ ردیف ' + (index + 1) + ' معتبر نیست: ' + error.message); }
-      return { product, productId, quantityMilli, unitPrice, discountType, discountValue, taxRate, ...amounts };
+      return { product, productId, productCodeSnapshot: product.code, productNameSnapshot: product.name, unitSnapshot: product.unit, quantityMilli, unitPrice, discountType, discountValue, taxRate, ...amounts };
     });
   }
   function documentTotals(items) {
@@ -150,14 +152,79 @@ function registerIpcHandlers() {
       discount_irr AS discountIrr, tax_irr AS taxIrr, total_irr AS totalIrr, void_reason AS voidReason
       FROM documents WHERE id=?`).get(id);
     if (!doc) throw new Error('سند پیدا نشد.');
-    doc.items = database.prepare(`SELECT i.id, i.product_id AS productId, p.code AS productCode, p.name AS productName,
-      p.unit, i.quantity_milli AS quantityMilli, i.unit_price_irr AS unitPriceIrr,
+    doc.items = database.prepare(`SELECT i.id, i.product_id AS productId,
+      COALESCE(i.product_code_snapshot, p.code) AS productCode,
+      COALESCE(i.product_name_snapshot, p.name) AS productName,
+      COALESCE(i.unit_snapshot, p.unit) AS unit, i.quantity_milli AS quantityMilli, i.unit_price_irr AS unitPriceIrr,
       i.gross_irr AS grossIrr, i.discount_type AS discountType, i.discount_value AS discountValue, i.tax_rate_bp AS taxRateBp,
       i.discount_irr AS discountIrr, i.tax_irr AS taxIrr, i.total_irr AS totalIrr,
       i.unit_cost_snapshot_irr AS unitCostSnapshotIrr, i.cost_status AS costStatus
       FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=? ORDER BY i.id`).all(id);
     return doc;
   });
+  function loadFinalizedSaleForInvoice(id) {
+    const document = database.prepare(`SELECT id, document_type AS type, document_number AS documentNumber,
+      document_date AS documentDate, status, party_name AS partyName, notes, subtotal_irr AS subtotalIrr,
+      discount_irr AS discountIrr, tax_irr AS taxIrr, total_irr AS totalIrr, void_reason AS voidReason
+      FROM documents WHERE id=?`).get(requireId(id));
+    if (!document || document.type !== 'sale' || !['finalized', 'voided'].includes(document.status)) {
+      throw new Error('فقط فاکتور فروش قطعی یا باطل‌شده قابل چاپ است.');
+    }
+    document.items = database.prepare(`SELECT i.id, COALESCE(i.product_code_snapshot,p.code) AS productCode,
+      COALESCE(i.product_name_snapshot,p.name) AS productName, COALESCE(i.unit_snapshot,p.unit) AS unit,
+      i.quantity_milli AS quantityMilli, i.unit_price_irr AS unitPriceIrr, i.total_irr AS totalIrr
+      FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=? ORDER BY i.id`).all(document.id);
+    return document;
+  }
+  async function invoicePrintWindow(html) {
+    const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
+    try {
+      await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+      return win;
+    } catch (error) {
+      if (!win.isDestroyed()) win.destroy();
+      throw error;
+    }
+  }
+  async function invoicePageSize(win, format) {
+    if (format !== 'thermal80') return 'A4';
+    const heightPx = await win.webContents.executeJavaScript('Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)');
+    return thermalPageSize(heightPx);
+  }
+  ipcMain.handle('invoice:print', async (_event, payload = {}) => {
+    const format = payload.format;
+    const document = loadFinalizedSaleForInvoice(payload.id);
+    const html = renderInvoice(document, format);
+    const win = await invoicePrintWindow(html);
+    try {
+      const pageSize = await invoicePageSize(win, format);
+      return await new Promise((resolve, reject) => win.webContents.print({ silent: false, printBackground: true, pageSize }, (success, failureReason) => {
+        if (success) resolve({ printed: true });
+        else if (failureReason === 'Print job canceled') resolve({ printed: false, canceled: true });
+        else reject(new Error(failureReason || 'چاپ فاکتور ناموفق بود.'));
+      }));
+    } finally { win.destroy(); }
+  });
+  ipcMain.handle('invoice:save-pdf', async (_event, payload = {}) => {
+    const format = payload.format;
+    const document = loadFinalizedSaleForInvoice(payload.id);
+    const html = renderInvoice(document, format);
+    const extension = '.pdf';
+    const choice = await dialog.showSaveDialog(mainWindow, {
+      title: 'ذخیرهٔ PDF فاکتور',
+      defaultPath: document.documentNumber + (format === 'thermal80' ? '-80mm' : '-A4') + extension,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+    if (choice.canceled || !choice.filePath) return { canceled: true };
+    const win = await invoicePrintWindow(html);
+    try {
+      const pageSize = await invoicePageSize(win, format);
+      const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize });
+      fs.writeFileSync(choice.filePath, pdf);
+      return { canceled: false, filePath: choice.filePath };
+    } finally { win.destroy(); }
+  });
+
   ipcMain.handle('documents:save-draft', (_event, payload = {}) => {
     const type = payload.type;
     if (!['purchase', 'sale'].includes(type)) throw new Error('نوع سند معتبر نیست.');
@@ -184,9 +251,9 @@ function registerIpcHandlers() {
         id = result.lastInsertRowid;
         database.prepare('UPDATE documents SET document_number=? WHERE id=?').run('DRAFT-' + id, id);
       }
-      const insert = database.prepare(`INSERT INTO document_items(document_id,product_id,quantity_milli,unit_price_irr,discount_type,discount_value,tax_rate_bp,gross_irr,discount_irr,tax_irr,total_irr)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?)`);
-      for (const item of items) insert.run(id, item.productId, item.quantityMilli, item.unitPrice, item.discountType, item.discountValue, item.taxRate, item.gross, item.discount, item.tax, item.total);
+      const insert = database.prepare(`INSERT INTO document_items(document_id,product_id,product_code_snapshot,product_name_snapshot,unit_snapshot,quantity_milli,unit_price_irr,discount_type,discount_value,tax_rate_bp,gross_irr,discount_irr,tax_irr,total_irr)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      for (const item of items) insert.run(id, item.productId, item.productCodeSnapshot, item.productNameSnapshot, item.unitSnapshot, item.quantityMilli, item.unitPrice, item.discountType, item.discountValue, item.taxRate, item.gross, item.discount, item.tax, item.total);
       return { id, status: 'draft', ...totals };
     })();
   });
@@ -238,7 +305,8 @@ function registerIpcHandlers() {
           addMovement.run(item.product_id, id, item.id, -item.quantity_milli, 'sale');
         }
       }
-      database.prepare("UPDATE documents SET status='finalized', finalized_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=?").run(id);
+      const finalized = database.prepare("UPDATE documents SET status='finalized', finalized_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id=? AND status='draft'").run(id);
+      if (finalized.changes !== 1) throw new Error('وضعیت سند تغییر کرده است؛ برای جلوگیری از ثبت تکراری، عملیات متوقف شد.');
       return { id, documentNumber: number, status: 'finalized', warnings };
     })();
   });
@@ -527,9 +595,100 @@ function runSmokeCheck() {
   if (!process.argv.includes('--smoke-test')) return;
   mainWindow.webContents.once('did-finish-load', async () => {
     try {
-      const result = await mainWindow.webContents.executeJavaScript('window.marketApp.getDatabaseStatus()');
-      if (!result?.connected || result.schemaVersion < 1) throw new Error('Renderer IPC or SQLite migration check failed');
-      console.log(`ELECTRON_SMOKE_OK schema=${result.schemaVersion}`);
+      const result = await mainWindow.webContents.executeJavaScript(`(async () => {
+        const api = window.marketApp;
+        const status = await api.getDatabaseStatus();
+        if (!status?.connected || status.schemaVersion < 5) throw new Error('Renderer IPC or SQLite migration check failed');
+
+        const suffix = Date.now().toString(36).toUpperCase();
+        const originalName = 'Smoke test product ' + suffix;
+        const changedName = originalName + ' renamed';
+        const product = await api.saveProduct({
+          code: 'SMOKE-' + suffix, name: originalName, unit: 'عدد',
+          salePriceIrr: 1250, minStockMilli: 0, description: 'Temporary Electron integration smoke test'
+        });
+        if (!product?.id) throw new Error('Smoke test product creation failed');
+
+        const draft = await api.saveDocumentDraft({
+          type: 'sale',
+          documentDate: new Date().toISOString().slice(0, 10),
+          partyName: '',
+          notes: 'Electron end-to-end smoke test',
+          items: [{ productId: product.id, quantityMilli: 2000, unitPriceIrr: 1250, discountType: 'none', discountValue: 0 }]
+        });
+        if (!draft?.id || draft.status !== 'draft' || draft.total !== undefined && draft.total !== 2500) {
+          throw new Error('Draft save failed or returned unexpected totals');
+        }
+
+        let draftInvoiceRejected = false;
+        try { await api.printInvoice(draft.id, 'a4'); }
+        catch (_) { draftInvoiceRejected = true; }
+        if (!draftInvoiceRejected) throw new Error('Invoice IPC accepted a draft document');
+
+        let draftPdfRejected = false;
+        try { await api.saveInvoicePdf(draft.id, 'a4'); }
+        catch (_) { draftPdfRejected = true; }
+        if (!draftPdfRejected) throw new Error('PDF IPC accepted a draft document');
+
+        let saved = await api.getDocument(draft.id);
+        if (saved.status !== 'draft' || saved.items?.length !== 1 ||
+            saved.items[0].productName !== originalName || saved.items[0].quantityMilli !== 2000) {
+          throw new Error('Draft reopen or product snapshot check failed');
+        }
+
+        await api.saveProduct({
+          id: product.id, code: 'SMOKE-' + suffix, name: changedName, unit: 'عدد',
+          salePriceIrr: 1300, minStockMilli: 0, description: 'Renamed after draft save'
+        });
+        saved = await api.getDocument(draft.id);
+        if (saved.items[0].productName !== originalName) {
+          throw new Error('Draft item snapshot changed after catalog edit');
+        }
+
+        const preview = await api.previewDocumentFinalization(draft.id);
+        if (!Array.isArray(preview.warnings) || preview.warnings.length !== 1) {
+          throw new Error('Expected the insufficient-stock warning before finalization');
+        }
+
+        const finalized = await api.finalizeDocument(draft.id);
+        if (finalized.status !== 'finalized' || !finalized.documentNumber) {
+          throw new Error('Document finalization failed');
+        }
+        const reopened = await api.getDocument(draft.id);
+        if (reopened.status !== 'finalized' || reopened.items[0].productName !== originalName) {
+          throw new Error('Finalized document history or snapshot check failed');
+        }
+
+        let invalidPrintFormatRejected = false;
+        try { await api.printInvoice(draft.id, 'unsupported'); }
+        catch (_) { invalidPrintFormatRejected = true; }
+        if (!invalidPrintFormatRejected) throw new Error('Invoice IPC accepted an unsupported print format');
+
+        let invalidPdfFormatRejected = false;
+        try { await api.saveInvoicePdf(draft.id, 'unsupported'); }
+        catch (_) { invalidPdfFormatRejected = true; }
+        if (!invalidPdfFormatRejected) throw new Error('Invoice IPC accepted an unsupported PDF format');
+
+        const inventory = await api.listInventory();
+        const stock = inventory.find(row => row.id === product.id);
+        if (!stock || stock.quantityMilli !== -2000) {
+          throw new Error('Sale inventory movement was not recorded exactly once');
+        }
+
+        let duplicateRejected = false;
+        try { await api.finalizeDocument(draft.id); }
+        catch (_) { duplicateRejected = true; }
+        if (!duplicateRejected) throw new Error('Duplicate finalization was not rejected');
+
+        const inventoryAfterRetry = await api.listInventory();
+        const stockAfterRetry = inventoryAfterRetry.find(row => row.id === product.id);
+        if (!stockAfterRetry || stockAfterRetry.quantityMilli !== -2000) {
+          throw new Error('Duplicate finalization changed inventory');
+        }
+        return { connected: status.connected, schemaVersion: status.schemaVersion, documentId: draft.id };
+      })()`);
+      if (!result?.connected || result.schemaVersion < 5) throw new Error('Electron integration smoke test returned invalid status');
+      console.log(`ELECTRON_SMOKE_OK schema=${result.schemaVersion} sale_document=${result.documentId}`);
       if (database?.open) database.close();
       database = null;
       app.exit(0);

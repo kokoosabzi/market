@@ -8,6 +8,7 @@
   <title>Market | مدیریت فروشگاه</title>
   <link rel="stylesheet" href="./styles.css">
   <script src="./renderer.js" defer></script>
+  <script src="./pos.js" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -15,13 +16,13 @@
       <div class="brand"><span class="brand-mark">م</span><div><strong>Market</strong><small>مدیریت فروشگاه</small></div></div>
       <div class="sidebar-caption">فضای کاری</div>
       <nav class="main-nav">
-        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span> نمای کلی</button>
+        <button class="nav-item active sales-primary-nav" data-page="sale"><span class="nav-icon">↗</span> فروش و فاکتورها</button>
+        <button class="nav-item" data-page="dashboard"><span class="nav-icon">⌂</span> نمای کلی</button>
         <button class="nav-item" data-page="products"><span class="nav-icon">▦</span> کالاها</button>
         <button class="nav-item" data-page="categories"><span class="nav-icon">▤</span> دسته‌بندی‌ها</button>
         <button class="nav-item" data-page="purchase"><span class="nav-icon">↙</span> خریدها</button>
-        <button class="nav-item" data-page="sale"><span class="nav-icon">↗</span> فروش‌ها</button>
         <button class="nav-item" data-page="inventory"><span class="nav-icon">▥</span> موجودی</button>
-        <button class="nav-item" data-page="returns"><span class="nav-icon">↩</span> برگشت‌ها</button>
+        <button class="nav-item" data-page="returns"><span class="nav-icon">↩</span> برگشت از فروش و خرید</button>
         <button class="nav-item" data-page="reports"><span class="nav-icon">▧</span> گزارش‌ها</button>
         <button class="nav-item" data-page="backup"><span class="nav-icon">⬇</span> پشتیبان‌گیری</button>
         <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span> تنظیمات</button>
@@ -30,11 +31,11 @@
     </aside>
     <main class="workspace">
       <header class="topbar">
-        <div><p class="eyebrow" id="breadcrumb">فضای کاری / نمای کلی</p><h1 id="page-title">نمای کلی</h1></div>
+        <div><p class="eyebrow" id="breadcrumb">فضای کاری / فروش و فاکتورها</p><h1 id="page-title">فروش و فاکتورها</h1></div>
         <div class="top-actions"><span class="offline-label"><span class="status-dot"></span> پایگاه داده محلی</span><button id="theme-toggle" class="icon-button" type="button" aria-label="تغییر پوسته" title="تغییر پوسته">◐</button></div>
       </header>
-      <section id="dashboard-page" class="page">
-        <div class="hero-panel"><div><span class="hero-tag">نسخهٔ دسکتاپ</span><h2>مدیریت فروشگاه، ساده و متمرکز</h2><p>کالاها، خرید و فروش، موجودی و گزارش‌های فروشگاه را در یک محیط محلی و فارسی مدیریت کنید.</p><button class="primary-button" data-go="products">مدیریت کالاها <span>←</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-square square-one"></div><div class="art-square square-two"></div><div class="art-core">م</div></div></div>
+      <section id="dashboard-page" class="page" hidden>
+        <div class="hero-panel"><div><span class="hero-tag">نسخهٔ دسکتاپ</span><h2>مدیریت فروشگاه، ساده و متمرکز</h2><p>کالاها، خرید و فروش، موجودی و گزارش‌های فروشگاه را در یک محیط محلی و فارسی مدیریت کنید.</p><button class="primary-button" data-go="sale">شروع فروش <span>←</span></button></div><div class="hero-art" aria-hidden="true"><div class="art-square square-one"></div><div class="art-square square-two"></div><div class="art-core">م</div></div></div>
         <div class="section-heading"><div><h2>وضعیت برنامه</h2><p>اطلاعات محلی و وضعیت پایگاه داده</p></div><span class="subtle-pill" id="app-version">در حال بررسی نسخه…</span></div>
         <div class="stats-grid">
           <article class="stat-card"><div class="stat-icon blue">▦</div><span>کالاهای ثبت‌شده</span><strong id="product-count">۰</strong><small>شامل کالاهای فعال و غیرفعال</small></article>
@@ -59,8 +60,26 @@
         <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>فروشنده (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="purchase-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
       </section>
       <section id="sale-page" class="page" hidden>
-        <div class="section-heading"><div><h2>اسناد فروش</h2><p>ثبت فروش، کاهش موجودی و نگهداری snapshot بهای تمام‌شده</p></div><button class="primary-button" data-new-document="sale">＋ فروش جدید</button></div>
-        <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>خریدار (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="sale-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+        <div class="sales-workspace-intro">
+          <div><span class="sales-kicker">مرکز عملیات فروشگاه</span><h2>فروش را از همین‌جا شروع کنید</h2><p>ثبت فروش، مدیریت فاکتورهای صادرشده و پیگیری برگشت از فروش در یک فضای یکپارچه.</p></div>
+          <button class="primary-button sales-start-button" data-pos-open type="button"><span aria-hidden="true">＋</span> شروع فروش جدید</button>
+        </div>
+
+        <section id="pos-workspace" class="pos-workspace" hidden aria-label="صندوق فروش سریع">
+          <div class="pos-heading"><div><span class="sales-kicker">صندوق فروش سریع</span><h2 id="pos-heading-title">ثبت فروش جدید</h2><p>کالا را جست‌وجو و به سبد اضافه کنید؛ مبلغ نهایی در سمت برنامه اعتبارسنجی می‌شود.</p></div><button class="secondary-button" type="button" data-pos-close>بازگشت به فروش</button></div>
+          <div class="pos-meta"><label>تاریخ فروش<input id="pos-date" type="date" required><small id="pos-date-jalali"></small></label><label>نام خریدار <span class="muted-cell">(اختیاری)</span><input id="pos-party" maxlength="160" placeholder="نام خریدار"></label><label class="pos-notes">یادداشت <input id="pos-notes" maxlength="1000" placeholder="توضیحات اختیاری"></label></div>
+          <div class="pos-columns"><div class="pos-catalog"><label class="search-box pos-search"><span>⌕</span><input id="pos-search" type="search" placeholder="جست‌وجوی کالا با نام یا کد…" autocomplete="off"></label><div id="pos-results" class="pos-results"><p class="empty-cell">برای مشاهده کالاها، نام یا کد را جست‌وجو کنید.</p></div></div>
+          <div class="pos-cart-panel"><div class="section-heading"><div><h3>سبد فروش</h3><p id="pos-cart-count">۰ قلم</p></div></div><div id="pos-cart" class="pos-cart"><p class="empty-cell">هنوز کالایی به سبد اضافه نشده است.</p></div><div class="pos-total-row"><span>جمع کالاها</span><strong id="pos-subtotal">۰</strong></div><div class="pos-total-row"><span>تخفیف</span><strong id="pos-discount-total">۰</strong></div><div class="pos-total-row"><span>مالیات</span><strong id="pos-tax">۰</strong></div><div class="pos-total-row pos-grand-total"><span>مبلغ نهایی</span><strong id="pos-total">۰</strong></div><div class="pos-actions"><button id="pos-save-draft" class="secondary-button" type="button">ذخیره پیش‌نویس</button><button id="pos-finalize" class="primary-button" type="button">صدور فروش</button></div><p id="pos-error" class="form-error" hidden></p></div></div>
+        </section>
+        <div class="sales-shortcuts" aria-label="دسترسی سریع فروش">
+          <button class="sales-shortcut active" type="button" data-sales-scroll="sales-invoices"><span class="sales-shortcut-icon">▤</span><span><strong>فاکتورهای فروش</strong><small>مشاهده اسناد و ادامه پیش‌نویس‌ها</small></span><span class="sales-shortcut-arrow">←</span></button>
+          <button class="sales-shortcut" type="button" data-go="returns"><span class="sales-shortcut-icon">↩</span><span><strong>برگشت از فروش</strong><small>ثبت و پیگیری برگشت‌های مرتبط</small></span><span class="sales-shortcut-arrow">←</span></button>
+          <button class="sales-shortcut" type="button" data-go="products"><span class="sales-shortcut-icon">▦</span><span><strong>مدیریت کالاها</strong><small>بررسی کالاها و قیمت‌های فروش</small></span><span class="sales-shortcut-arrow">←</span></button>
+        </div>
+        <div id="sales-invoices" class="sales-invoices-section">
+          <div class="section-heading"><div><h2>فاکتورها و اسناد فروش</h2><p>پیش‌نویس‌ها را ادامه دهید؛ اسناد قطعی را برای مراحل بعدی فاکتور و چاپ آماده نگه دارید.</p></div><span class="subtle-pill">فهرست فروش</span></div>
+          <div class="table-wrap"><table><thead><tr><th>شماره سند</th><th>تاریخ</th><th>خریدار (متنی)</th><th>تعداد قلم</th><th>مبلغ کل</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="sale-documents-table"><tr><td colspan="7" class="empty-cell">در حال بارگذاری…</td></tr></tbody></table></div>
+        </div>
       </section>
       <section id="inventory-page" class="page" hidden>
         <div class="section-heading"><div><h2>وضعیت موجودی</h2><p>موجودی از گردش اسناد نهایی‌شده محاسبه می‌شود؛ مقدار منفی مجاز است و باید بررسی شود.</p></div><button class="secondary-button" id="refresh-inventory">به‌روزرسانی</button></div>
@@ -90,6 +109,7 @@
       <section id="settings-page" class="page" hidden>
         <div class="section-heading"><div><h2>تنظیمات نمایش</h2><p>ظاهر برنامه را مطابق سلیقهٔ خود تنظیم کنید</p></div></div>
         <div class="settings-card"><div><strong>پوستهٔ برنامه</strong><p>می‌توانید از حالت روشن، تیره یا تنظیم خودکار سیستم استفاده کنید.</p></div><div class="segmented-control" role="group" aria-label="پوسته"><button data-theme-choice="light" type="button">روشن</button><button data-theme-choice="dark" type="button">تیره</button><button data-theme-choice="system" type="button">خودکار</button></div></div>
+        <div class="settings-card"><div><strong>چیدمان محیط کار</strong><p>بین ساختار کلاسیک و محیط مینیمال کارت‌ها و تایل‌های ماژولار انتخاب کنید.</p></div><div class="segmented-control" role="group" aria-label="چیدمان محیط"><button data-layout-choice="classic" type="button">کلاسیک</button><button data-layout-choice="tiles" type="button">کارت و تایل</button></div></div>
         <div class="settings-card"><div><strong>واحد نمایش قیمت</strong><p>مبالغ در پایگاه داده همیشه به ریال ذخیره می‌شوند.</p></div><div class="segmented-control" role="group" aria-label="واحد نمایش"><button data-money-choice="irr" type="button">ریال</button><button data-money-choice="irt" type="button">تومان</button></div></div>
         <div class="settings-card"><div><strong>نرخ مالیات و عوارض</strong><p>نرخ اولیه صفر است. نرخ به‌صورت درصد ثبت می‌شود و در سند نهایی snapshot خواهد شد.</p></div><div class="tax-setting"><label>درصد مالیات<input id="tax-rate" type="number" min="0" max="100" step="0.01" value="0" inputmode="decimal"></label><button id="save-tax-rate" class="primary-button" type="button">ذخیره نرخ</button></div></div>
         <div class="settings-card"><div><strong>پایگاه داده</strong><p id="settings-db-location">مسیر در حال دریافت است</p></div><span class="subtle-pill" id="schema-version">نسخهٔ ساختار —</span></div>
@@ -129,6 +149,18 @@
       <p class="form-error" id="document-form-error" role="alert" hidden></p>
       <div class="modal-actions"><button type="button" class="secondary-button" id="cancel-document">انصراف</button><button type="button" class="secondary-button" id="save-document-draft">ذخیرهٔ پیش‌نویس</button><button type="submit" class="primary-button" id="finalize-document">ثبت قطعی</button></div>
     </form>
+  </dialog>
+  <dialog id="invoice-dialog" class="modal invoice-modal">
+    <div class="modal-form">
+      <div class="modal-heading"><div><span class="eyebrow">فاکتور فروش</span><h2>جزئیات فاکتور</h2></div><button id="close-invoice-dialog" class="icon-button" type="button" aria-label="بستن">×</button></div>
+      <div id="invoice-detail-content"></div>
+      <div class="invoice-actions">
+        <label>قالب خروجی<select id="invoice-format"><option value="a4">A4</option><option value="thermal80">حرارتی ۸۰ میلی‌متر</option></select></label>
+        <button id="invoice-print" class="secondary-button" type="button">چاپ / چاپ مجدد</button>
+        <button id="invoice-save-pdf" class="primary-button" type="button">ذخیره PDF</button>
+      </div>
+      <p class="muted-cell">چاپ و بازچاپ فقط از اطلاعات سند ذخیره‌شده استفاده می‌کند و موجودی را تغییر نمی‌دهد.</p>
+    </div>
   </dialog>
   <dialog id="return-dialog" class="modal">
     <form id="return-form" class="modal-form">

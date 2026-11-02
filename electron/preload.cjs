@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('marketApp', Object.freeze({
   setProductActive: (id, active) => ipcRenderer.invoke('catalog:set-product-active', { id, active }),
   listDocuments: (type) => ipcRenderer.invoke('documents:list', { type }),
   getDocument: (id) => ipcRenderer.invoke('documents:get', { id }),
+  printInvoice: (id, format) => ipcRenderer.invoke('invoice:print', { id, format }),
+  saveInvoicePdf: (id, format) => ipcRenderer.invoke('invoice:save-pdf', { id, format }),
   saveDocumentDraft: (document) => ipcRenderer.invoke('documents:save-draft', document),
   previewDocumentFinalization: (id) => ipcRenderer.invoke('documents:preview-finalize', { id }),
   finalizeDocument: (id) => ipcRenderer.invoke('documents:finalize', { id }),
