@@ -5,7 +5,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { openDatabase } = require('./database.cjs');
 const { roundRatio, calculateLine, calculateProfit } = require('./domain.cjs');
-const { renderInvoice } = require('./invoice.cjs');
+const { renderInvoice, thermalPageSize } = require('./invoice.cjs');
 
 if (process.env.MARKET_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.MARKET_USER_DATA_DIR));
 
@@ -176,9 +176,20 @@ function registerIpcHandlers() {
       FROM document_items i JOIN products p ON p.id=i.product_id WHERE i.document_id=? ORDER BY i.id`).all(document.id);
     return document;
   }
-  function invoicePrintWindow(html) {
+  async function invoicePrintWindow(html) {
     const win = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true } });
-    return win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)).then(() => win);
+    try {
+      await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+      return win;
+    } catch (error) {
+      if (!win.isDestroyed()) win.destroy();
+      throw error;
+    }
+  }
+  async function invoicePageSize(win, format) {
+    if (format !== 'thermal80') return 'A4';
+    const heightPx = await win.webContents.executeJavaScript('Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)');
+    return thermalPageSize(heightPx);
   }
   ipcMain.handle('invoice:print', async (_event, payload = {}) => {
     const format = payload.format;
@@ -186,7 +197,7 @@ function registerIpcHandlers() {
     const html = renderInvoice(document, format);
     const win = await invoicePrintWindow(html);
     try {
-      const pageSize = format === 'thermal80' ? { width: 80000, height: 2000000 } : 'A4';
+      const pageSize = await invoicePageSize(win, format);
       return await new Promise((resolve, reject) => win.webContents.print({ silent: false, printBackground: true, pageSize }, (success, failureReason) => {
         if (success) resolve({ printed: true });
         else if (failureReason === 'Print job canceled') resolve({ printed: false, canceled: true });
@@ -207,7 +218,7 @@ function registerIpcHandlers() {
     if (choice.canceled || !choice.filePath) return { canceled: true };
     const win = await invoicePrintWindow(html);
     try {
-      const pageSize = format === 'thermal80' ? { width: 80000, height: 2000000 } : 'A4';
+      const pageSize = await invoicePageSize(win, format);
       const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize });
       fs.writeFileSync(choice.filePath, pdf);
       return { canceled: false, filePath: choice.filePath };
